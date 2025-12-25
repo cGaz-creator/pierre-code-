@@ -14,7 +14,7 @@ app = FastAPI(title="IA Devis API (Refactored)") # Reload trigger
 # CORS Configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*", "https://devis-ai-azure.vercel.app"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
