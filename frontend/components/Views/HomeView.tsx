@@ -8,7 +8,7 @@ interface HomeViewProps {
 }
 
 export function HomeView({ onStart }: HomeViewProps) {
-    const container = {
+    const container: any = {
         hidden: { opacity: 0 },
         show: {
             opacity: 1,
@@ -19,12 +19,12 @@ export function HomeView({ onStart }: HomeViewProps) {
         }
     };
 
-    const item = {
+    const item: any = {
         hidden: { opacity: 0, y: 20 },
         show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } }
     };
 
-    const floating = {
+    const floating: any = {
         animate: {
             y: [0, -10, 0],
             transition: {
