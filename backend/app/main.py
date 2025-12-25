@@ -11,10 +11,11 @@ from .routers import chat, devis, entreprise, clients, upload, feedback
 app = FastAPI(title="IA Devis API (Refactored)") # Reload trigger
 
 # CORS Configuration
+# CORS Configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
