@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+sqlmodel
+openai
+reportlab
+python-dotenv
+pandas
+openpyxl
+pypdf
+python-multipart
+passlib[bcrypt]
+psycopg2-binary

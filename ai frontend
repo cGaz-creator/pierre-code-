@@ -1,0 +1,346 @@
+import './globals.css';
+import type { Metadata } from 'next';
+import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
+import { Toaster } from 'react-hot-toast';
+
+export const metadata: Metadata = {
+  title: 'Devis.ai - Générez vos devis en 30 secondes',
+  description: "Créez vos devis en quelques secondes grâce à l’IA.",
+  icons: { icon: '/favicon.ico' }
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="fr">
+      <body>
+        <a href="#content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 bg-blue-600 text-white px-3 py-1 rounded">
+          Aller au contenu
+        </a>
+        <Navbar />
+        <main id="content" className="main-wrap">{children}</main>
+        <Footer />
+        <Toaster position="top-right" />
+      </body>
+    </html>
+  );
+}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Palette & helpers */
+:root { color-scheme: light dark; }
+
+body { @apply bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100; }
+
+a { @apply underline-offset-2 decoration-zinc-300 dark:decoration-zinc-700; }
+a:hover { @apply underline; }
+
+/* UI tokens */
+.btn { @apply inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500/40; }
+.btn-primary { @apply btn bg-blue-600 hover:bg-blue-700 text-white shadow; }
+.btn-secondary { @apply btn bg-zinc-900 hover:bg-black text-white dark:bg-zinc-800 dark:hover:bg-zinc-700; }
+.btn-ghost { @apply btn bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-900; }
+.input { @apply w-full rounded-xl border border-zinc-300 bg-white text-zinc-900 placeholder-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 px-3 py-2; }
+.card { @apply rounded-2xl border border-zinc-200 bg-white dark:bg-zinc-950 dark:border-zinc-800; }
+.glass-card { @apply border border-zinc-200/80 bg-white/70 backdrop-blur dark:border-zinc-800/60 dark:bg-zinc-900/60; }
+.muted { @apply text-zinc-500 dark:text-zinc-400; }
+.tag { @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200; }
+
+/* Sticky navbar space */
+.main-wrap { @apply mx-auto max-w-6xl w-full px-4 py-6; }
+export default function HomePage() {
+  return (
+    <div className="space-y-10">
+      {/* HERO */}
+      <section className="grid md:grid-cols-2 gap-8 items-center">
+        <div className="space-y-4">
+          <div className="text-sm text-blue-600/80">Slogan</div>
+          <h1 className="text-3xl md:text-4xl font-semibold">
+            Créez des devis <span className="text-blue-600">ultra-rapidement</span> avec l’IA
+          </h1>
+          <p className="text-zinc-600 dark:text-zinc-300 max-w-xl">
+            Décrivez votre besoin, notre IA propose les prestations, calcule les totaux et génère un PDF professionnel.
+          </p>
+          <div className="flex gap-3">
+            <a href="/devis/new" className="btn-primary">Commencer — Créer un devis</a>
+          </div>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            Le chat aide à clarifier le besoin : lance d’abord la création du devis.
+          </p>
+        </div>
+
+        {/* Illustration simple orientée devis */}
+        <div className="hero-devis-frame rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 h-[340px] md:h-[420px] overflow-hidden relative">
+          <div className="absolute inset-0 opacity-90 dark:opacity-100"
+               style={{background:'radial-gradient(closest-side, rgba(59,130,246,0.10), rgba(59,130,246,0) 60%)'}} />
+          <div className="absolute left-6 top-6 w-[65%] max-w-[420px] bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-lg">
+            <div className="px-4 py-3 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800">
+              <div className="h-3 w-20 rounded bg-zinc-200 dark:bg-zinc-800" />
+              <div className="text-xs px-2 py-1 rounded-full bg-blue-600/10 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300">Devis</div>
+            </div>
+            <div className="p-4 space-y-3">
+              {[1,2,3].map(i => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className="h-2.5 w-36 rounded bg-zinc-200 dark:bg-zinc-800" />
+                  <div className="ml-auto h-2.5 w-14 rounded bg-zinc-200 dark:bg-zinc-800" />
+                </div>
+              ))}
+              <div className="border-t border-zinc-200 dark:border-zinc-800 pt-3">
+                <div className="flex items-center gap-3 text-[11px]"><span className="text-zinc-500 dark:text-zinc-400">HT</span><div className="ml-auto h-2.5 w-12 rounded bg-zinc-200 dark:bg-zinc-800" /></div>
+                <div className="flex items-center gap-3 text-[11px] mt-1"><span className="text-zinc-500 dark:text-zinc-400">TVA</span><div className="ml-auto h-2.5 w-12 rounded bg-zinc-200 dark:bg-zinc-800" /></div>
+                <div className="flex items-center gap-3 text-[12px] mt-2"><span className="font-medium">TTC</span><div className="ml-auto h-3 w-16 rounded bg-blue-600/30 dark:bg-blue-500/30" /></div>
+              </div>
+            </div>
+          </div>
+          <div className="absolute right-6 bottom-6 px-3 py-1.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300 text-xs font-medium shadow-sm">
+            Montant TTC calculé
+          </div>
+        </div>
+      </section>
+
+      {/* 3 AVANTAGES */}
+      <section className="grid md:grid-cols-3 gap-4">
+        <div className="card p-5"><div className="font-semibold">Jusqu’à 10× plus rapide</div><div className="muted mt-1">Temps moyen &lt; 30 s par devis</div></div>
+        <div className="card p-5"><div className="font-semibold">+98% de satisfaction</div><div className="muted mt-1">Témoignages vérifiés</div></div>
+        <div className="card p-5"><div className="font-semibold">Devis pro en PDF</div><div className="muted mt-1">Totaux HT/TVA/TTC automatiques</div></div>
+      </section>
+    </div>
+  );
+}
+'[id]'/   new/   page.tsx
+page.tsx
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
+import {
+  getEntreprise, upsertEntreprise, listClients, addClient,
+  chatStart, chatTurn, type Client as BClient, type Entreprise as BEntreprise
+} from '@/lib/backend';
+import { getEnterpriseMemory, setEnterpriseMemory, mergeEnterprise,
+         getClientsMemory, upsertClientMemory, mergeClients, shallowEqualClient, clientKey } from '@/lib/memory';
+
+type Step = 1|2|3;
+
+export default function DevisWizardPage(){
+  const router = useRouter();
+  const [step, setStep] = useState<Step>(1);
+
+  // Étape 1 — Entreprise (préremplie via API + local)
+  const [E, setE] = useState<BEntreprise>({ nom:'', forme:'', siret:'', adresse:'', email:'', tel:'', logo_url:'', iban:'', bic:'' });
+  const [logoFileName, setLogoFileName] = useState<string>('');
+
+  // Étape 2 — Clients (liste fusionnée API + local avec auto-complétion)
+  const [allClients, setAllClients] = useState<BClient[]>([]);
+  const [C, setC] = useState<BClient>({ nom:'', type:'particulier', adresse:'', email:'', tel:'', adresse_chantier:'' });
+  const [selectedKey, setSelectedKey] = useState<string>('');
+
+  // Étape 3 — Brief
+  const [brief, setBrief] = useState('');
+
+  // Session
+  const [sessionId, setSessionId] = useState('');
+  const [devisId, setDevisId] = useState('');
+
+  useEffect(()=>{
+    (async ()=>{
+      try{
+        // Entreprise: merge API + local
+        const apiE = await getEntreprise().catch(()=> ({} as BEntreprise));
+        const locE = getEnterpriseMemory();
+        const merged = mergeEnterprise(apiE, locE);
+        setE(merged);
+
+        // Clients: merge API + local
+        const apiClients = await listClients().catch(()=> []);
+        const localClients = getClientsMemory();
+        const mergedClients = mergeClients(apiClients, localClients);
+        setAllClients(mergedClients);
+      }catch{
+        // soft-fail en dev
+      }
+    })();
+  }, []);
+
+  const onLogoFile = (file: File | null) => {
+    if(!file) return;
+    setLogoFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = () => setE(prev => ({ ...prev, logo_url: String(reader.result || '') }));
+    reader.readAsDataURL(file);
+  };
+
+  const suggestions = useMemo(()=>{
+    const q = (C.nom || '').toLowerCase().trim();
+    if(!q) return [];
+    return allClients
+      .filter(x => (`${x.nom} ${x.email||''} ${x.tel||''}`).toLowerCase().includes(q))
+      .slice(0, 5);
+  }, [C.nom, allClients]);
+
+  const pickSuggestion = (s: BClient) => {
+    setC({ ...s });
+    setSelectedKey(clientKey(s));
+  };
+
+  const next = async () => {
+    try{
+      if(step===1){
+        await upsertEntreprise(E);          // on ne bloque pas si incomplet
+        setEnterpriseMemory(E);             // mémoire locale
+        setStep(2);
+      }else if(step===2){
+        if(!C.nom?.trim()){ toast.error('Renseigne au moins le nom du client'); return; }
+
+        // Déduplication: email prioritaire sinon (nom+tel)
+        const k = clientKey(C);
+        const existing = allClients.find(x => clientKey(x) === k);
+
+        let clientId: string | undefined = existing?.id;
+
+        // Si l'utilisateur a choisi une suggestion mais a modifié des champs => créer un nouveau client
+        if(existing && !shallowEqualClient(existing, C)){
+          clientId = undefined;
+        }
+
+        if(!clientId){
+          const created = await addClient(C);
+          clientId = created.id!;
+          // mémoire locale + liste locale
+          upsertClientMemory(created);
+          setAllClients(prev => {
+            const copy = prev.slice();
+            const idx = copy.findIndex(x => clientKey(x) === clientKey(created));
+            if(idx>=0) copy[idx] = { ...copy[idx], ...created };
+            else copy.unshift(created);
+            return copy;
+          });
+        }
+
+        // On garde la sélection (utile si retour)
+        setSelectedKey(k);
+
+        // Lancement session + brief
+        const started = await chatStart({ client_id: clientId! });
+        setSessionId(started.session_id);
+        setDevisId(started.devis_id);
+
+        if(brief.trim().length>0){
+          const r = await chatTurn(started.session_id, brief.trim());
+          if(!r?.session_id) throw new Error('IA indisponible');
+        }
+        toast.success('Devis initial créé');
+        router.push(`/chat?session_id=${encodeURIComponent(started.session_id)}&devis_id=${encodeURIComponent(started.devis_id)}`);
+      }
+    }catch(e:any){
+      toast.error(e?.message || 'Erreur de création');
+    }
+  };
+
+  const back = () => setStep((s)=> (s>1 ? ((s-1) as Step) : s));
+
+  return (
+    <div className="space-y-5">
+      <h1 className="text-xl font-semibold">Créer un devis</h1>
+
+      {/* Progress */}
+      <div className="grid grid-cols-3 gap-2 text-xs">
+        {['Entreprise','Client','Brief'].map((label,i)=>(
+          <div key={i} className={`rounded-xl px-3 py-2 ${i+1<=step?'bg-blue-600 text-white':'bg-zinc-100 dark:bg-zinc-900'}`}>{i+1}. {label}</div>
+        ))}
+      </div>
+
+      {/* Step 1 — Entreprise */}
+      {step===1 && (
+        <div className="card p-4 space-y-3">
+          <div className="grid md:grid-cols-2 gap-3">
+            <input className="input" placeholder="Nom de l'entreprise" value={E.nom||''} onChange={e=>setE({...E, nom:e.target.value})}/>
+            <input className="input" placeholder="Forme (optionnel)" value={E.forme||''} onChange={e=>setE({...E, forme:e.target.value})}/>
+            <input className="input" placeholder="SIRET" value={E.siret||''} onChange={e=>setE({...E, siret:e.target.value})}/>
+            <input className="input md:col-span-2" placeholder="Adresse" value={E.adresse||''} onChange={e=>setE({...E, adresse:e.target.value})}/>
+            <input className="input" placeholder="Email" value={E.email||''} onChange={e=>setE({...E, email:e.target.value})}/>
+            <input className="input" placeholder="Téléphone" value={E.tel||''} onChange={e=>setE({...E, tel:e.target.value})}/>
+
+            {/* Logo : URL OU Upload */}
+            <div className="md:col-span-2 grid md:grid-cols-2 gap-3">
+              <div>
+                <div className="text-sm mb-1">Logo par URL (optionnel)</div>
+                <input className="input" placeholder="https://…/logo.png" value={E.logo_url||''} onChange={e=>setE({...E, logo_url:e.target.value})}/>
+              </div>
+              <div>
+                <div className="text-sm mb-1">Ou importer une image (png/jpg)</div>
+                <input className="input" type="file" accept="image/*" onChange={e=>onLogoFile(e.target.files?.[0] ?? null)} />
+                { (E.logo_url?.startsWith('data:') || E.logo_url?.startsWith('http')) && (
+                  <div className="mt-2 flex items-center gap-3">
+                    <img src={E.logo_url} alt="logo preview" className="h-10 w-auto rounded border border-zinc-200 dark:border-zinc-800" />
+                    <div className="text-xs muted truncate max-w-[220px]">{logoFileName || E.logo_url}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <input className="input" placeholder="IBAN (optionnel)" value={E.iban||''} onChange={e=>setE({...E, iban:e.target.value})}/>
+            <input className="input" placeholder="BIC (optionnel)" value={E.bic||''} onChange={e=>setE({...E, bic:e.target.value})}/>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button className="btn-ghost" onClick={()=>setStep(2)}>Passer</button>
+            <button className="btn-primary" onClick={next}>Continuer</button>
+          </div>
+        </div>
+      )}
+
+      {/* Step 2 — Client */}
+      {step===2 && (
+        <div className="card p-4 space-y-3">
+          <div className="grid md:grid-cols-2 gap-3">
+            <div className="md:col-span-2">
+              <input className="input" placeholder="Nom du client" value={C.nom||''} onChange={e=>{ setC({...C, nom:e.target.value}); setSelectedKey(''); }} />
+              {/* Suggestions */}
+              {suggestions.length>0 && (
+                <div className="mt-2 border border-zinc-200 dark:border-zinc-800 rounded-xl">
+                  {suggestions.map((s,i)=>(
+                    <button key={i} type="button" className="w-full text-left px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                            onClick={()=>pickSuggestion(s)}>
+                      <div className="text-sm">{s.nom}</div>
+                      <div className="text-xs muted">{[s.email, s.tel].filter(Boolean).join(' • ') || '—'}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <select className="input" value={C.type} onChange={e=>setC({...C, type: e.target.value as 'particulier'|'pro'})}>
+              <option value="particulier">Particulier</option>
+              <option value="pro">Professionnel</option>
+            </select>
+            <input className="input" placeholder="Email (pour éviter les doublons)" value={C.email||''} onChange={e=>{ setC({...C, email:e.target.value}); setSelectedKey(''); }} />
+            <input className="input" placeholder="Téléphone (pour éviter les doublons)" value={C.tel||''} onChange={e=>{ setC({...C, tel:e.target.value}); setSelectedKey(''); }} />
+            <input className="input md:col-span-2" placeholder="Adresse" value={C.adresse||''} onChange={e=>setC({...C, adresse:e.target.value})}/>
+            <input className="input md:col-span-2" placeholder="Adresse chantier (optionnel)" value={C.adresse_chantier||''} onChange={e=>setC({...C, adresse_chantier:e.target.value})}/>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="text-xs muted">{selectedKey ? 'Prérempli depuis la mémoire' : 'Nouveau client'}</div>
+            <div className="flex gap-2">
+              <button className="btn-ghost" onClick={()=>setStep(3)}>Passer</button>
+              <button className="btn-primary" onClick={next}>Continuer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Step 3 — Brief */}
+      {step===3 && (
+        <div className="card p-4 space-y-3">
+          <div className="text-sm opacity-80">Décris brièvement le besoin (envoyé à l’IA). Tu pourras compléter dans le Chat.</div>
+          <textarea className="input h-28" placeholder="Ex: Peinture salon 30 m2, murs & plafonds, préparation incluse…" value={brief} onChange={e=>setBrief(e.target.value)} />
+          <div className="flex justify-between">
+            <button className="btn-ghost" onClick={back}>Retour</button>
+            <button className="btn-primary" onClick={next}>Créer et ouvrir le chat</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

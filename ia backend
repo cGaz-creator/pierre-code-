@@ -1,0 +1,1153 @@
+root@ubuntu-4gb-nbg1-1:~/ia-devis# cat app.py
+# app.py — IA Devis avec thèmes + couleur personnalisable
+# Démarrage:
+#   python3 -m venv .venv && source .venv/bin/activate
+#   python -m pip install --upgrade pip
+#   python -m pip install fastapi "uvicorn[standard]" pydantic jinja2 python-dotenv \
+#       rapidfuzz pandas openpyxl reportlab qrcode[pil]
+#   uvicorn app:app --host 0.0.0.0 --port 8000
+
+from __future__ import annotations
+import os, io, re, base64, datetime as dt
+from typing import List, Optional, Literal, Dict, Any, Tuple
+from decimal import Decimal, ROUND_HALF_UP
+
+# FastAPI & utils
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.responses import HTMLResponse, StreamingResponse, PlainTextResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+from jinja2 import Environment, BaseLoader, select_autoescape
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Data / fuzzy / excel
+import pandas as pd
+from rapidfuzz import process, fuzz
+
+# PDF
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import mm
+from reportlab.lib.utils import ImageReader
+
+from openai import OpenAI
+import json
+
+client = OpenAI()
+
+Q = Decimal("0.01")
+def D(x) -> Decimal:
+    return Decimal(str(x))
+
+# ========== Styles / Thèmes ==========
+THEMES: Dict[str, Dict[str, Any]] = {
+    "classic": {
+        "label": "Classique",
+        "accent_hex": "#111827",
+        "table_header_fill": "#F3F4F6",
+        "header_band": None,   # pas de bandeau
+        "cards": False,
+    },
+    "modern_plus": {
+        "label": "Modern+",
+        "accent_hex": "#0EA5E9",
+        "table_header_fill": "#E0F2FE",
+        "header_band": {"height_mm": 10},  # bandeau plein largeur
+        "cards": True,
+    },
+    "creative": {
+        "label": "Créatif",
+        "accent_hex": "#16A34A",
+        "table_header_fill": "#DCFCE7",
+        "header_band": {"height_mm": 18, "diagonal": True},
+        "cards": True,
+    },
+    "bold": {
+        "label": "Bold",
+        "accent_hex": "#EC4899",
+        "table_header_fill": "#FCE7F3",
+        "header_band": {"height_mm": 16, "right_tag": True},
+        "cards": True,
+    },
+}
+
+def hex_to_color(h: str) -> colors.Color:
+    if not h:
+        return colors.HexColor("#111827")
+    h = h.strip()
+    if not h.startswith("#"):
+        h = "#" + h
+    try:
+        return colors.HexColor(h)
+    except Exception:
+        return colors.HexColor("#111827")
+
+# ========== Modèles ==========
+class Remise(BaseModel):
+    label: str = "Remise"
+    mode: Literal["percent","amount"] = "percent"
+    valeur: float = 0.0  # 10 => 10% si percent, € si amount
+
+class Acompte(BaseModel):
+    mode: Literal["percent","amount"] = "percent"
+    valeur: float = 0.0
+
+class Ligne(BaseModel):
+    type: Literal["article","mo","frais"] = "article"
+    ref: Optional[str] = None
+    designation: str
+    qte: float = 1.0
+    unite: Literal["u","h","m","m2","ml","m3","jour","semaine","forfait"] = "u"
+    pu_ht: Optional[float] = None
+    tva: float = 0.2
+    lot: Optional[str] = None
+    option: bool = False
+    note: Optional[str] = None
+    total_ht: Optional[float] = None
+
+class Frais(BaseModel):
+    label: str
+    montant_ht: float
+    tva: float = 0.2
+
+class Entreprise(BaseModel):
+    # On conserve ces champs pour compat front/back
+    nom: str = ""
+    forme: str = ""
+    siret: str = ""
+    tva_intracom: str = ""     # peut rester vide
+    adresse: str = ""
+    email: str = ""
+    tel: str = ""
+    logo_url: str = ""         # peut être URL (le PDF peut aussi supporter base64 via /entreprise plus tard)
+    iban: str = ""
+    bic: str = ""              # peut rester vide (optionnel)
+
+class Client(BaseModel):
+    id: str = Field(default_factory=lambda: __import__("uuid").uuid4().hex)
+    nom: str = ""
+    type: Literal["particulier","pro"] = "particulier"
+    adresse: str = ""
+    email: str = ""
+    tel: str = ""
+    adresse_chantier: str = ""  # optionnel
+
+class Meta(BaseModel):
+    devis_id: str = Field(default_factory=lambda: "")
+    date: dt.date = Field(default_factory=dt.date.today)
+    devise: str = "EUR"
+    version: int = 1
+    statut: Literal["brouillon","envoye","accepte","refuse","expire"] = "brouillon"
+    theme: Literal["classic","modern_plus","creative","bold"] = "modern_plus"
+    accent_hex: str = "#0EA5E9"
+    cta_url: str = ""
+    objet: str = ""
+    def __init__(self, **data):
+        super().__init__(**data)
+        if not self.devis_id:
+            import uuid as _uuid
+            self.devis_id = f"DV-{dt.date.today().year}-{_uuid.uuid4().hex[:6].upper()}"
+
+class Conditions(BaseModel):
+    validite_jours: int = 30
+    delai: str = ""
+    paiement: str = "Virement"
+    notes: str = ""
+
+class Totaux(BaseModel):
+    ht: float = 0.0
+    tva: float = 0.0
+    ttc: float = 0.0
+    arrondi: int = 2
+    remise_globale: Remise = Remise()
+    acompte: Acompte = Acompte()
+    acompte_ttc: float = 0.0
+    reste_a_payer_ttc: float = 0.0
+    tva_by_rate: Dict[str, float] = Field(default_factory=dict)
+
+class Devis(BaseModel):
+    meta: Meta = Field(default_factory=Meta)
+    entreprise: Entreprise = Field(default_factory=Entreprise)
+    client: Client = Field(default_factory=Client)
+    lignes: List[Ligne] = Field(default_factory=list)
+    remises: List[Remise] = Field(default_factory=list)
+    frais: List[Frais] = Field(default_factory=list)
+    conditions: Conditions = Field(default_factory=Conditions)
+    totaux: Totaux = Field(default_factory=Totaux)
+    price_mode: Literal["HT","TTC"] = "HT"
+
+# ========== Parsing ==========
+RE_NUM = re.compile(r"(\d+(?:[.,]\d+)?)")
+RE_PCT = re.compile(r"(\d+(?:[.,]\d+)?)\s*%")
+RE_MONEY = re.compile(r"(\d+(?:[.,]\d+)?)\s*(?:€|eur|euros?)", re.I)
+LOT_RE = re.compile(r"(?:^|\s)lot\s*:\s*([A-Za-z0-9 \-_]+)$", re.I)
+
+def parse_float(s: str) -> Optional[float]:
+    if not s:
+        return None
+    m = RE_NUM.search(s.replace(",", "."))
+    return float(m.group(1)) if m else None
+
+def parse_percent_to_ratio(s: str) -> Optional[float]:
+    m = RE_PCT.search(s or "")
+    if not m:
+        return None
+    v = float(m.group(1).replace(",", "."))
+    return v/100.0 if v > 1 else v
+
+def parse_money(s: str) -> Optional[float]:
+    m = RE_MONEY.search(s or "")
+    return float(m.group(1).replace(",", ".")) if m else None
+
+def parse_qty_with_unit(s: str) -> Tuple[Optional[float], str]:
+    if not s:
+        return (None,"u")
+    t = s.strip().lower().replace("²","2")
+    m = re.search(r"(\d+(?:[.,]\d+)?)(?:\s*)(m2|m|h|u|ml|m3|jour|semaine|forfait)\b", t)
+    if m:
+        return (float(m.group(1).replace(",", ".")), m.group(2))
+    q = parse_float(t)
+    return (q,"u")
+
+def extract_lot(s: str) -> Optional[str]:
+    m = LOT_RE.search(s or "")
+    return m.group(1).strip() if m else None
+
+TVA_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*%")
+def parse_tva_in_msg(s: str) -> Optional[float]:
+    m = TVA_RE.search(s or "")
+    if m:
+        v = float(m.group(1).replace(",", "."))
+        return v/100.0 if v > 1 else v
+
+    # Fallback : accepte aussi "2.3" ou "10" même sans "%"
+    txt = (s or "").strip()
+    if not txt:
+        return None
+    try:
+        v = float(txt.replace(",", "."))
+    except ValueError:
+        return None
+    return v/100.0 if v > 1 else v
+
+def clean_designation(text: str) -> str:
+    """
+    Nettoie les amorces naturelles ('je souhaite...', 'fais moi...', etc.)
+    pour produire une désignation propre.
+    """
+    import re as _re
+    out = (text or "").strip()
+    patterns = [
+        r'^\s*je\s+(souhaite|veux|voudrais)\s+(cr[eé]er\s+un\s+devis\s+pour|faire|un|une)?\s*',
+        r'^\s*fais(?:\-|\s*)moi\s+(un\s+devis\s+pour|un|une)?\s*',
+        r'^\s*faire\s+un\s+devis\s+pour\s*',
+        r'^\s*cr[eé]er\s+un\s+devis\s+pour\s*',
+    ]
+    for pat in patterns:
+        out = _re.sub(pat, '', out, flags=_re.I)
+    return out.strip()
+
+
+# ========== Command helpers & flow ==========
+import re as _re_cmd
+COMMAND_PAT = _re_cmd.compile(
+    r"(ajoute|ajouter|nouvelle ligne|supprime|enl[eè]ve|modifie|remplace|duplique|pdf|aper[çc]u|remise|acompte|frais)",
+    _re_cmd.I,
+)
+def is_command(text: str) -> bool:
+    return bool(COMMAND_PAT.search(text or ""))
+
+
+def normalize_objet(t: str) -> str:
+    return (t or "").strip().strip('.').strip()
+
+def is_newline_cmd(text: str) -> bool:
+    t = (text or "").strip().lower()
+    # commandes typiques pour ajouter une nouvelle ligne
+    if t in {
+        "nouvelle ligne",
+        "nouvelle",
+        "ajoute une ligne",
+        "ajoute",
+        "ajouter une ligne",
+        "ajouter",
+    }:
+        return True
+    return ("nouvelle" in t and "ligne" in t) or ("ajoute" in t and "ligne" in t)
+
+def is_pdf_cmd(text: str) -> bool:
+    t = (text or "").strip().lower()
+    return "pdf" in t
+
+
+# ========== Catalogue ==========
+
+
+def read_catalog(file_bytes: bytes, filename: str) -> List[Dict]:
+    if filename.lower().endswith(".csv"):
+        df = pd.read_csv(io.BytesIO(file_bytes))
+    else:
+        df = pd.read_excel(io.BytesIO(file_bytes))
+    cols = {c.lower(): c for c in df.columns}
+    des_col = next((cols[c] for c in cols if any(k in c for k in ["désign","design","designation","libell","article","nom"])), None)
+    pu_col  = next((cols[c] for c in cols if any(k in c for k in ["pu","prix","montant","tarif"])), None)
+    tva_col = next((cols[c] for c in cols if "tva" in c), None)
+    uni_col = next((cols[c] for c in cols if any(k in c for k in ["unit","unité","unite","u."])), None)
+    if not des_col or not pu_col:
+        return []
+    items = []
+    for idx,row in df.iterrows():
+        des = str(row.get(des_col,"")).strip()
+        if not des:
+            continue
+        try:
+            pu = float(str(row.get(pu_col,"")).replace(",", "."))
+        except:
+            continue
+        tva_raw = str(row.get(tva_col,"")).strip() if tva_col else ""
+        try:
+            raw = tva_raw.replace("%","").replace(",","." ).strip()
+            v = float(raw) if raw else 20.0
+            tva_v = (v/100.0) if v > 1 else v
+        except:
+            tva_v = 0.20
+        uni = str(row.get(uni_col,"u")).strip() if uni_col else "u"
+        items.append({"id": f"art_{idx}", "designation": des, "pu_ht": pu, "tva": tva_v, "unite": uni})
+    return items
+
+def fuzzy_search(catalog: List[Dict], query: str, limit: int = 5) -> List[Dict]:
+    if not catalog or not query:
+        return []
+    names = [it["designation"] for it in catalog]
+    hits = process.extract(query, names, scorer=fuzz.WRatio, limit=limit)
+    out = []
+    for name, score, idx in hits:
+        if score >= 75:
+            it = catalog[idx].copy()
+            it["score"] = score
+            it["flag"] = ("auto" if score >= 95 else "ask")
+            out.append(it)
+    return out
+
+# ========== Calculs ==========
+def apply_remise(amount: Decimal, remise: Optional[Remise]) -> Decimal:
+    if not remise or not remise.valeur:
+        return amount
+    if remise.mode == "percent":
+        return (amount * (Decimal("1") - D(remise.valeur)/Decimal("100"))).quantize(Q, rounding=ROUND_HALF_UP)
+    else:
+        return max(Decimal("0"), (amount - D(remise.valeur))).quantize(Q, rounding=ROUND_HALF_UP)
+
+def line_total_ht_value(l: Ligne) -> Decimal:
+    if l.pu_ht is None:
+        return Decimal("0.00")
+    return (D(l.pu_ht) * D(l.qte)).quantize(Q, rounding=ROUND_HALF_UP)
+
+def compute_totaux(d: Devis) -> Devis:
+    total_ht = Decimal("0")
+    tva_tot = Decimal("0")
+    tva_map: Dict[str, Decimal] = {}
+    for l in d.lignes:
+        lht = line_total_ht_value(l)
+        l.total_ht = float(lht)
+        total_ht += lht
+        r = Decimal(str(l.tva or 0))
+        t = (lht * r).quantize(Q, rounding=ROUND_HALF_UP)
+        tva_tot += t
+        key = f"{int(round(float(r)*100))}%"
+        tva_map[key] = (tva_map.get(key, Decimal("0")) + t).quantize(Q, rounding=ROUND_HALF_UP)
+    for f in d.frais:
+        fht = D(f.montant_ht)
+        total_ht += fht
+        r = Decimal(str(f.tva or 0))
+        t = (fht * r).quantize(Q, rounding=ROUND_HALF_UP)
+        tva_tot += t
+        key = f"{int(round(float(r)*100))}%"
+        tva_map[key] = (tva_map.get(key, Decimal("0")) + t).quantize(Q, rounding=ROUND_HALF_UP)
+
+    total_ht = apply_remise(total_ht, d.totaux.remise_globale)
+    d.totaux.ht = float(total_ht)
+    d.totaux.tva = float(tva_tot)
+    d.totaux.ttc = float((total_ht + tva_tot).quantize(Q))
+    d.totaux.tva_by_rate = {k: float(v) for k, v in tva_map.items()}
+    # acompte
+    a = d.totaux.acompte
+    if a and a.valeur:
+        if a.mode == "percent":
+            d.totaux.acompte_ttc = float((D(d.totaux.ttc) * (D(a.valeur)/Decimal("100"))).quantize(Q))
+        else:
+            d.totaux.acompte_ttc = float(min(D(d.totaux.ttc), D(a.valeur)).quantize(Q))
+    else:
+        d.totaux.acompte_ttc = 0.0
+    d.totaux.reste_a_payer_ttc = float((D(d.totaux.ttc) - D(d.totaux.acompte_ttc)).quantize(Q))
+    return d
+
+# ========== QR optionnel ==========
+def _qr_png_b64(url: str) -> str:
+    if not url:
+        return ""
+    try:
+        import qrcode
+        from PIL import Image  # noqa
+    except Exception:
+        return ""
+    qr = qrcode.QRCode(box_size=2, border=2)
+    qr.add_data(url); qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    bio = io.BytesIO(); img.save(bio, format="PNG")
+    return base64.b64encode(bio.getvalue()).decode("ascii")
+
+# ========== PDF rendu ==========
+def _draw_kv(c, x, y, k, v, bold=False, size=9):
+    c.setFont("Helvetica-Bold" if bold else "Helvetica", size)
+    c.drawString(x, y, f"{k}")
+    c.setFont("Helvetica", size)
+    c.drawString(x+90, y, f": {v}")
+
+def _money(v):
+    try:
+        return f"{float(v):.2f} €"
+    except:
+        return str(v)
+
+def _render_header_band(c, theme_cfg, accent: colors.Color, w, h):
+    band = theme_cfg.get("header_band")
+    if not band:
+        return
+    hh = band.get("height_mm", 12) * mm
+    c.setFillColor(accent)
+    if band.get("diagonal"):
+        c.saveState()
+        c.translate(0, h-hh)
+        c.rect(0, 0, w, hh, fill=1, stroke=0)
+        c.setFillColor(colors.white)
+        c.restoreState()
+    elif band.get("right_tag"):
+        c.rect(0, h-hh, w, hh, fill=1, stroke=0)
+        c.setFillColor(colors.white)
+        c.polygon([w-40*mm, h-hh, w, h-hh, w, h], fill=1, stroke=0)
+    else:
+        c.rect(0, h-hh, w, hh, fill=1, stroke=0)
+
+def render_pdf(d: Devis, e: Entreprise) -> bytes:
+    theme_name = d.meta.theme if d.meta.theme in THEMES else "modern_plus"
+    theme_cfg = THEMES[theme_name]
+    accent = hex_to_color(d.meta.accent_hex or theme_cfg["accent_hex"])
+    head_fill = hex_to_color(theme_cfg.get("table_header_fill") or "#F3F4F6")
+
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    w, h = A4
+
+    # Bandeau / accent
+    _render_header_band(c, theme_cfg, accent, w, h)
+
+    # Logo entreprise (si présent)
+    if getattr(e, "logo_url", None):
+        try:
+            logo_src = (e.logo_url or "").strip()
+            img_reader = None
+            if logo_src.startswith("data:image"):
+                # data URL base64
+                header, b64data = logo_src.split(",", 1)
+                import base64 as _b64
+                img_bytes = _b64.b64decode(b64data)
+                img_reader = ImageReader(io.BytesIO(img_bytes))
+            else:
+                # URL http(s) ou chemin local
+                img_reader = ImageReader(logo_src)
+            # Dessin du logo en haut à droite
+            if img_reader:
+                c.drawImage(
+                    img_reader,
+                    w - 40*mm,   # position X
+                    h - 30*mm,   # position Y
+                    20*mm,       # largeur
+                    20*mm,       # hauteur
+                    preserveAspectRatio=True,
+                    mask="auto",
+                )
+        except Exception:
+            # On ignore silencieusement les erreurs de logo pour ne pas bloquer le PDF
+            pass
+
+    # En-tête
+    c.setFillColor(accent)
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(20*mm, h-18*mm, f"Devis {d.meta.devis_id}")
+    c.setFillColor(colors.black)
+    c.setFont("Helvetica", 9)
+    c.drawString(20*mm, h-24*mm, f"Date : {d.meta.date}   Devise : {d.meta.devise}")
+    if d.meta.objet:
+        c.setFont("Helvetica", 10)
+        c.drawString(20*mm, h-29*mm, f"Objet : {d.meta.objet}")
+
+    # QR (CTA)
+    if d.meta.cta_url:
+        b64 = _qr_png_b64(d.meta.cta_url)
+        if b64:
+            img_reader = ImageReader(io.BytesIO(base64.b64decode(b64)))
+            c.drawImage(img_reader, 175*mm, h-25*mm, 18*mm, 18*mm, preserveAspectRatio=True, mask="auto")
+            c.setFont("Helvetica", 7); c.drawRightString(190*mm, h-27*mm, "Accepter & Payer")
+
+    # Cartes Entreprise / Client
+    y = h - 40*mm
+    if theme_cfg.get("cards"):
+        c.setFillColor(colors.whitesmoke); c.roundRect(18*mm, y-24*mm, 80*mm, 26*mm, 4*mm, fill=1, stroke=0)
+        c.roundRect(112*mm, y-24*mm, 80*mm, 26*mm, 4*mm, fill=1, stroke=0)
+    c.setFillColor(colors.black)
+
+    c.setFont("Helvetica-Bold", 11); c.drawString(20*mm, y, "Entreprise")
+    c.setFont("Helvetica", 9)
+    y1 = y-6*mm
+    _draw_kv(c, 20*mm, y1, "Nom", e.nom, True); y1-=5*mm
+    _draw_kv(c, 20*mm, y1, "Forme", e.forme or ""); y1-=5*mm
+    _draw_kv(c, 20*mm, y1, "SIRET", e.siret or ""); y1-=5*mm
+    _draw_kv(c, 20*mm, y1, "TVA intracom", e.tva_intracom or ""); y1-=5*mm
+    _draw_kv(c, 20*mm, y1, "Adresse", e.adresse or ""); y1-=5*mm
+    _draw_kv(c, 20*mm, y1, "Email", e.email or ""); y1-=5*mm
+    _draw_kv(c, 20*mm, y1, "Téléphone", e.tel or "")
+
+    c.setFont("Helvetica-Bold", 11); c.drawString(114*mm, y, "Client")
+    cl = d.client; y2 = y-6*mm; c.setFont("Helvetica", 9)
+    _draw_kv(c, 114*mm, y2, "Nom", cl.nom or "", True); y2-=5*mm
+    _draw_kv(c, 114*mm, y2, "Type", cl.type or ""); y2-=5*mm
+    _draw_kv(c, 114*mm, y2, "Adresse", cl.adresse or ""); y2-=5*mm
+    if cl.adresse_chantier:
+        _draw_kv(c, 114*mm, y2, "Chantier", cl.adresse_chantier); y2-=5*mm
+    _draw_kv(c, 114*mm, y2, "Email", cl.email or ""); y2-=5*mm
+    _draw_kv(c, 114*mm, y2, "Téléphone", cl.tel or "")
+
+    # Tableau Lignes
+    # Colonnes recalées pour un meilleur alignement :
+    # Désignation | Lot | Qté | PU HT | TVA | Total HT
+    y = y2 - 10*mm
+    c.setLineWidth(0.6)
+    c.setFillColor(head_fill)
+    c.rect(20*mm, y, 190*mm, 8*mm, fill=1, stroke=0)
+    c.setFillColor(colors.black)
+    c.setFont("Helvetica-Bold", 10)
+    # En-têtes alignés sur les colonnes de données
+    c.drawString(22*mm,  y+2.2*mm, "Désignation")
+    c.drawRightString(120*mm, y+2.2*mm, "Lot")
+    c.drawRightString(140*mm, y+2.2*mm, "Qté")
+    c.drawRightString(160*mm, y+2.2*mm, "PU HT")
+    c.drawRightString(176*mm, y+2.2*mm, "TVA")
+    c.drawRightString(193*mm, y+2.2*mm, "Total HT")
+    y -= 6*mm
+    c.line(20*mm, y, 190*mm, y)
+    y -= 4*mm
+
+    if not d.lignes:
+        c.setFont("Helvetica-Oblique", 10)
+        c.drawString(22*mm, y, "Aucune ligne pour le moment.")
+        y -= 8*mm
+
+    c.setFont("Helvetica", 9)
+    current_lot = None
+    for l in d.lignes:
+        if y < 40*mm:
+            c.showPage(); w, h = A4; y = h - 30*mm
+        if l.lot and l.lot != current_lot:
+            current_lot = l.lot
+            c.setFillColor(accent); c.setFont("Helvetica-Bold", 9)
+            c.drawString(20*mm, y, f"Lot — {current_lot}")
+            c.setFillColor(colors.black); c.setFont("Helvetica", 9)
+            y -= 5*mm
+        des = (l.designation or "")[:100]
+        c.drawString(22*mm, y, des)
+        # Colonnes alignées avec les en-têtes
+        c.drawRightString(120*mm, y, (l.lot or "—"))
+        c.drawRightString(140*mm, y, f"{l.qte:.2f} {l.unite or ''}")
+        pu = "-" if l.pu_ht is None else _money(l.pu_ht)
+        c.drawRightString(160*mm, y, pu)
+        c.drawRightString(176*mm, y, f"{int(round(float(l.tva or 0)*100))}%")
+        c.drawRightString(193*mm, y, _money(l.total_ht or 0.0))
+        y -= 5*mm
+        if l.note:
+            c.setFont("Helvetica-Oblique", 8); c.setFillColor(colors.grey)
+            c.drawString(22*mm, y, f"• {l.note[:110]}")
+            c.setFillColor(colors.black); c.setFont("Helvetica", 9)
+            y -= 4*mm
+
+    # Frais
+    if d.frais:
+        y -= 6*mm
+        c.setFont("Helvetica-Bold", 10); c.drawString(20*mm, y, "Frais"); y -= 4*mm
+        c.setFont("Helvetica", 9)
+        for fr in d.frais:
+            if y < 30*mm:
+                c.showPage(); w, h = A4; y = h - 30*mm
+            c.drawString(22*mm, y, f"• {fr.label}")
+            c.drawRightString(160*mm, y, _money(fr.montant_ht))
+            c.drawRightString(175*mm, y, f"{int(round(float(fr.tva)*100))}%")
+            y -= 5*mm
+
+    # Totaux (bloc de droite)
+    y -= 6*mm
+    c.setLineWidth(0.6); c.line(120*mm, y, 190*mm, y); y -= 4*mm
+    c.setFont("Helvetica-Bold", 10); c.drawRightString(170*mm, y, "Total HT :")
+    c.setFont("Helvetica", 10); c.drawRightString(190*mm, y, _money(d.totaux.ht)); y -= 5*mm
+
+    if d.totaux.tva_by_rate:
+        for k,v in d.totaux.tva_by_rate.items():
+            c.setFont("Helvetica-Bold", 9); c.drawRightString(170*mm, y, f"TVA {k} :")
+            c.setFont("Helvetica", 9); c.drawRightString(190*mm, y, _money(v)); y -= 4*mm
+
+    c.setFont("Helvetica-Bold", 10); c.drawRightString(170*mm, y, "Total TVA :")
+    c.setFont("Helvetica", 10); c.drawRightString(190*mm, y, _money(d.totaux.tva)); y -= 6*mm
+
+    c.setFillColor(accent); c.setFont("Helvetica-Bold", 12)
+    c.drawRightString(170*mm, y, "Total TTC :")
+    c.drawRightString(190*mm, y, _money(d.totaux.ttc))
+    c.setFillColor(colors.black); y -= 8*mm
+
+    if d.totaux.acompte_ttc:
+        c.setFont("Helvetica", 10); c.drawRightString(170*mm, y, "Acompte TTC :")
+        c.drawRightString(190*mm, y, _money(d.totaux.acompte_ttc)); y -= 5*mm
+        c.setFont("Helvetica-Bold", 11); c.drawRightString(170*mm, y, "Reste à payer TTC :")
+        c.drawRightString(190*mm, y, _money(d.totaux.reste_a_payer_ttc)); y -= 8*mm
+
+    # Conditions + RIB + Signature
+    c.setFont("Helvetica", 8)
+    c.drawString(20*mm, y, f"Validité : {d.conditions.validite_jours} jours. Paiement : {d.conditions.paiement}. {d.conditions.notes}")
+    y -= 8*mm
+    if e.iban or e.bic:
+        c.setFont("Helvetica-Bold", 9); c.drawString(20*mm, y, "RIB / Paiement"); c.setFont("Helvetica", 9); y-=5*mm
+        c.drawString(22*mm, y, f"IBAN : {e.iban or '-'}  |  BIC : {e.bic or '-'}"); y-=6*mm
+
+    # Signature cadre
+    c.setFont("Helvetica-Bold", 9)
+    c.drawString(20*mm, y, "Bon pour accord")
+    # Cadre de signature sous le texte
+    box_y = y - 20*mm
+    box_h = 18*mm
+    c.rect(20*mm, box_y, 80*mm, box_h, stroke=1, fill=0)
+    # Légende à l'intérieur du cadre, en bas à gauche
+    c.setFont("Helvetica", 8)
+    c.drawString(22*mm, box_y + 2*mm, "Nom / Date / Signature")
+
+    c.showPage(); c.save()
+    return buf.getvalue()
+
+# ========== HTML Template ==========
+DEVIS_TEMPLATE = r"""<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>{{ d.meta.devis_id }} - Devis</title>
+<style>
+:root { --accent: {{ accent }}; --thead: {{ thead }}; }
+body{font-family:Arial,system-ui;margin:0;padding:24px;color:#111}
+.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;border-bottom:3px solid var(--accent);padding-bottom:8px}
+.small{color:#666;font-size:12px}
+.table{width:100%;border-collapse:collapse;margin-top:16px}
+.table th{background:var(--thead);}
+.table th,.table td{border-bottom:1px solid #eee;padding:8px}
+.badge{display:inline-block;background:#fde68a;color:#92400e;border-radius:6px;padding:2px 8px;font-size:12px;margin-left:6px}
+.total{font-weight:bold}
+.right{text-align:right}
+.logo{max-height:56px}
+.lot{color:#334155;font-size:12px}
+.accent{color:var(--accent)}
+.card{background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:8px}
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <h2 class="accent">DEVIS — {{ d.meta.devis_id }}</h2>
+    <div class="small">Date : {{ d.meta.date }} — Devise : {{ d.meta.devise }}</div>
+    <div class="small">Statut : {{ d.meta.statut }}</div>
+    {% if d.meta.objet %}<div><strong>Objet :</strong> {{ d.meta.objet }}</div>{% endif %}
+  </div>
+  <div class="small" style="text-align:right">
+    {% if e.logo_url %}<img class="logo" src="{{ e.logo_url }}" alt="logo"/><br>{% endif %}
+    <strong>{{ e.nom }}</strong><br>{{ e.adresse }}<br>SIRET: {{ e.siret }} — TVA: {{ e.tva_intracom }}<br>
+    {{ e.email }} — {{ e.tel }}
+  </div>
+</div>
+
+<div style="display:flex; gap:16px; margin-top:8px;">
+  <div class="card" style="flex:1">
+    <div class="small"><strong>Entreprise</strong></div>
+    <div class="small">Forme : {{ e.forme }}<br>SIRET : {{ e.siret }}<br>TVA : {{ e.tva_intracom }}<br>Email : {{ e.email }}<br>Tel : {{ e.tel }}</div>
+  </div>
+  <div class="card" style="flex:1">
+    <div class="small"><strong>Client</strong></div>
+    <div class="small"><strong>{{ d.client.nom }}</strong> ({{ d.client.type }})<br>{{ d.client.adresse }}<br>{{ d.client.email }} — {{ d.client.tel }}</div>
+  </div>
+</div>
+
+<h3 style="margin-top:18px;">Lignes</h3>
+<table class="table">
+  <thead>
+    <tr><th>Lot</th><th>Désignation</th><th class="right">Qté</th><th>Unité</th><th class="right">PU HT</th><th class="right">TVA</th><th class="right">Total HT</th></tr>
+  </thead>
+  <tbody>
+  {% if not d.lignes %}
+    <tr><td colspan="7"><em>Aucune ligne.</em></td></tr>
+  {% endif %}
+  {% for l in d.lignes %}
+    <tr>
+      <td class="lot">{{ l.lot or "-" }}</td>
+      <td>
+        {{ l.designation }}
+        {% if l.note %}<div class="small">{{ l.note }}</div>{% endif %}
+        {% if l.pu_ht is none %}<span class="badge">prix à confirmer</span>{% endif %}
+      </td>
+      <td class="right">{{ "%.2f"|format(l.qte) }}</td>
+      <td>{{ l.unite }}</td>
+      <td class="right">{{ l.pu_ht is not none and ("%.2f €"|format(l.pu_ht)) or "-" }}</td>
+      <td class="right">{{ "%.0f"|format(l.tva*100) }}%</td>
+      <td class="right">{{ "%.2f €"|format(l.total_ht or 0.0) }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h3>Récapitulatif</h3>
+<table class="table">
+  <tbody>
+    <tr><td>Total HT</td><td class="right total">{{ "%.2f €"|format(d.totaux.ht) }}</td></tr>
+    {% for k,v in d.totaux.tva_by_rate.items() %}
+    <tr><td>TVA {{k}}</td><td class="right total">{{ "%.2f €"|format(v) }}</td></tr>
+    {% endfor %}
+    <tr><td>Total TVA</td><td class="right total">{{ "%.2f €"|format(d.totaux.tva) }}</td></tr>
+    <tr><td class="accent">Total TTC</td><td class="right total accent">{{ "%.2f €"|format(d.totaux.ttc) }}</td></tr>
+    {% if d.totaux.acompte_ttc and d.totaux.acompte_ttc > 0 %}
+    <tr><td>Acompte TTC</td><td class="right total">{{ "%.2f €"|format(d.totaux.acompte_ttc) }}</td></tr>
+    <tr><td>Reste à payer TTC</td><td class="right total">{{ "%.2f €"|format(d.totaux.reste_a_payer_ttc) }}</td></tr>
+    {% endif %}
+  </tbody>
+</table>
+
+<p class="small">Validité : {{ d.conditions.validite_jours }} jours. Paiement : {{ d.conditions.paiement }}. {{ d.conditions.notes }}</p>
+</body>
+</html>"""
+
+# ========== Mémoire ==========
+app = FastAPI(title="IA Devis – Thèmes & Couleurs")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+DB: Dict[str, Any] = {
+    "entreprise": Entreprise(),
+    "clients": [],
+    "devis": {},
+    "catalog": [],
+    "sessions": {},
+}
+
+env = Environment(loader=BaseLoader(), autoescape=select_autoescape(["html","xml"]))
+
+# ========== Endpoints généraux ==========
+@app.get("/health")
+def health():
+    return {"ok": True, "env": os.getenv("APP_ENV","dev")}
+
+@app.get("/themes")
+def themes():
+    return [{"id": k, "label": v["label"], "default_accent": v["accent_hex"]} for k,v in THEMES.items()]
+
+@app.get("/entreprise")
+def get_entreprise():
+    return DB["entreprise"]
+
+@app.post("/entreprise")
+def upsert_entreprise(data: Entreprise):
+    DB["entreprise"] = data
+    return {"ok": True}
+
+@app.get("/clients")
+def list_clients():
+    return DB["clients"]
+
+@app.post("/client")
+def add_client(c: Client):
+    DB["clients"].append(c)
+    return {"ok": True, "client": c}
+
+# Catalogue
+@app.post("/catalogue/import")
+async def import_catalog(file: UploadFile = File(...)):
+    raw = await file.read()
+    items = read_catalog(raw, file.filename)
+    DB["catalog"] = items
+    return {"ok": True, "count": len(items)}
+
+@app.get("/catalogue/search")
+def catalog_search(q: str):
+    return fuzzy_search(DB["catalog"], q)
+
+@app.post("/devis/line/from-catalog")
+def add_line_from_catalog(payload: Dict[str, Any]):
+    sid = payload.get("session_id"); ref = payload.get("ref"); qte = float(payload.get("qte",1))
+    S = DB["sessions"].get(sid)
+    if not S:
+        raise HTTPException(404, "Session inconnue.")
+    d = DB["devis"].get(S["devis_id"])
+    if not d:
+        raise HTTPException(404, "Devis introuvable")
+    item = next((it for it in DB["catalog"] if it.get("id")==ref), None)
+    if not item:
+        raise HTTPException(404, "Article introuvable")
+    d.lignes.append(Ligne(
+        type="article", ref=item["id"], designation=item["designation"], qte=qte,
+        unite=item.get("unite","u"), pu_ht=item.get("pu_ht"), tva=float(item.get("tva",0.2))
+    ))
+    compute_totaux(d)
+    return {"ok": True, "devis_id": d.meta.devis_id, "line_ref": ref, "count": len(d.lignes)}
+
+
+
+
+# ========== LLM helper ==========
+
+
+
+def call_llm_for_action(d: Devis, msg: str) -> Dict[str, Any]:
+    """
+    Analyse le message utilisateur avec le LLM et renvoie un dict JSON avec au moins :
+      - action: str parmi ["init_devis","add_line","add_lines_bulk","update_line","just_chat","ask_clarification","export_pdf"]
+      - assistant_message: str pour afficher au front.
+    En cas de souci, on renvoie une action ask_clarification plutôt qu'un message d'erreur technique.
+    """
+    import json as _json
+    from openai import OpenAI
+
+    # On sérialise le devis proprement (dates -> str)
+    devis_dict = d.dict()
+
+    payload = _json.dumps(
+        {
+            "devis": devis_dict,
+            "message": msg,
+        },
+        ensure_ascii=False,
+        default=str,
+    )
+
+    system_prompt = """Tu es une IA spécialisée en création de devis pour travaux BTP.
+Tu reçois un JSON avec l'état ACTUEL du devis (clé 'devis') et le DERNIER message de l'artisan (clé 'message').
+Tu DOIS répondre STRICTEMENT par un SEUL objet JSON valide, sans texte autour.
+
+Champs attendus :
+- 'action' : une chaîne parmi ['init_devis','add_line','add_lines_bulk','update_line','just_chat','ask_clarification','export_pdf'].
+- 'assistant_message' : texte en français affiché à l'utilisateur.
+
+Selon le contexte :
+- Si l'utilisateur décrit globalement les travaux, utilise 'action': 'init_devis' ou 'add_lines_bulk' et propose des lignes complètes.
+- Si l'utilisateur ajoute UNE seule prestation, utilise 'action': 'add_line'.
+- Si l'utilisateur corrige une ligne (prix, quantité, désignation...), utilise 'action': 'update_line' avec 'line_index' et 'fields'.
+- Si tu as besoin de précision, utilise 'action': 'ask_clarification' avec des questions claires.
+- Si l'utilisateur parle juste de choses générales, utilise 'action': 'just_chat'.
+- Si l'utilisateur demande un PDF ('pdf', 'génère le pdf', etc.), utilise 'action': 'export_pdf'.
+
+Pour les lignes, le format est :
+- 'designation' (str)
+- 'qte' (float)
+- 'unite' (str, ex: 'm2','u','forfait','h')
+- 'pu_ht' (float ou null si prix à confirmer)
+- 'tva' (float entre 0 et 1, ex: 0.2 pour 20%)
+- 'lot' (str ou null)
+- 'note' (str ou null).
+
+IMPORTANT :
+- Tous les montants que tu indiques dans 'pu_ht' doivent être des prix HT.
+- Si l'utilisateur donne un prix TTC avec un taux de TVA, tu dois convertir en HT :
+  pu_ht = prix_TTC / (1 + TVA). Exemple : 500 € TTC avec 12 % de TVA → pu_ht ≈ 446.43.
+- Ne mets jamais de prix TTC directement dans 'pu_ht'.
+
+Réponds UNIQUEMENT par un JSON, sans phrase avant ni après."""
+
+    client = OpenAI()
+
+    try:
+        resp = client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": payload},
+            ],
+            temperature=0.1,
+        )
+        content = resp.choices[0].message.content or "{}"
+        obj = _json.loads(content)
+    except Exception as e:
+        # En cas de problème LLM ou JSON, on bascule en clarification simple
+        print("LLM error in call_llm_for_action:", repr(e))
+        return {
+            "action": "ask_clarification",
+            "assistant_message": (
+                "Je n'ai pas réussi à analyser ta demande. "
+                "Donne-moi simplement les lignes du devis sous la forme : "
+                "désignation, quantité, prix HT, TVA."
+            ),
+        }
+
+    # Validation légère
+    allowed_actions = {
+        "init_devis",
+        "add_line",
+        "add_lines_bulk",
+        "update_line",
+        "just_chat",
+        "ask_clarification",
+        "export_pdf",
+    }
+
+    action = obj.get("action") or "ask_clarification"
+    if action not in allowed_actions:
+        action = "just_chat"
+
+    # Assistant message par défaut si absent / invalide
+    if "assistant_message" not in obj or not isinstance(obj["assistant_message"], str):
+        if action == "init_devis":
+            obj["assistant_message"] = "J'ai préparé une première version du devis à partir de ta description."
+        elif action in ("add_line", "add_lines_bulk"):
+            obj["assistant_message"] = "J'ai ajouté les lignes au devis. Tu peux corriger les montants ou les quantités si besoin."
+        elif action == "update_line":
+            obj["assistant_message"] = "J'ai mis à jour la ligne demandée. Dis-moi si d'autres corrections sont nécessaires."
+        elif action == "export_pdf":
+            obj["assistant_message"] = "Le devis est prêt pour un export PDF."
+        elif action == "ask_clarification":
+            obj["assistant_message"] = (
+                "J'ai besoin de précisions : donne-moi les lignes du devis "
+                "(désignation, quantité, prix HT, TVA)."
+            )
+        else:
+            obj["assistant_message"] = (
+                "J'ai analysé ta demande. Tu peux continuer ou préciser ce que tu veux modifier dans le devis."
+            )
+
+    obj["action"] = action
+    return obj
+
+
+class StartIn(BaseModel):
+    client_id: str
+    theme: Optional[Literal["classic","modern_plus","creative","bold"]] = "modern_plus"
+    accent_hex: Optional[str] = None
+    cta_url: Optional[str] = ""
+    objet: Optional[str] = ""
+
+
+class TurnIn(BaseModel):
+    session_id: str
+    message: str
+
+class StyleIn(BaseModel):
+    theme: Optional[Literal["classic","modern_plus","creative","bold"]] = None
+    accent_hex: Optional[str] = None
+
+@app.post("/chat/start")
+def chat_start(inp: StartIn):
+    import uuid
+    sid = uuid.uuid4().hex
+
+    # tolérant: crée le client si absent (ex: API redémarrée)
+    client = next((c for c in DB["clients"] if c.id == inp.client_id), None)
+    if not client:
+        client = Client(id=inp.client_id, nom="", type="particulier")
+        DB["clients"].append(client)
+
+    d = Devis()
+    d.client = client
+    d.entreprise = DB["entreprise"]
+    d.meta.theme = inp.theme or "modern_plus"
+    d.meta.accent_hex = inp.accent_hex or THEMES.get(d.meta.theme, THEMES["modern_plus"])["accent_hex"]
+    d.meta.cta_url = inp.cta_url or ""
+    d.meta.objet = inp.objet or ""
+
+    DB["devis"][d.meta.devis_id] = d
+    DB["sessions"][sid] = {
+        "devis_id": d.meta.devis_id,
+        "price_mode": None,   # HT/TTC
+        "default_tva": None,  # TVA par défaut si on veut l'utiliser plus tard
+        "pending_export": False,
+        # Nouveau flux : description globale d'abord
+        "flow": {"step": "need_objet", "retries": 0},
+        "draft": {}
+    }
+    first_msg = "Salut 👋 Décris-moi ton devis : type de travaux, pièces, surfaces, matériaux, budget..."
+    return {
+        "session_id": sid,
+        "assistant_message": first_msg,
+        "chips": [],
+        "devis_id": d.meta.devis_id,
+        "devis": d,
+    }
+
+# ========== Chat turn (endpoint LLM) ==========
+
+def _build_line_from_json(j: Dict[str, Any]) -> Ligne:
+    """Convertit un dict JSON du LLM en objet Ligne."""
+    return Ligne(
+        type="article",
+        designation=j.get("designation") or "",
+        qte=float(j.get("qte") or 1),
+        unite=j.get("unite") or "u",
+        pu_ht=j.get("pu_ht"),
+        tva=float(j.get("tva") or 0.2),
+        lot=j.get("lot") or None,
+        note=j.get("note") or None,
+    )
+
+
+@app.post("/chat/turn")
+def chat_turn(inp: TurnIn):
+    """Tour de chat principal, piloté par le LLM."""
+    sid = inp.session_id
+    S = DB["sessions"].get(sid)
+    if not S:
+        raise HTTPException(status_code=404, detail="Session inconnue.")
+
+    d = DB["devis"].get(S["devis_id"])
+    if not d:
+        raise HTTPException(status_code=404, detail="Devis introuvable.")
+
+    msg = (inp.message or "").strip()
+    if not msg:
+        return {
+            "session_id": sid,
+            "assistant_message": "Décris-moi ce que tu veux pour ce devis (travaux, surfaces, matériaux, budget...).",
+            "chips": [],
+            "devis_id": d.meta.devis_id,
+            "devis": d,
+        }
+
+    result = call_llm_for_action(d, msg)
+    action = (result.get("action") or "just_chat").strip()
+    assistant_message = result.get("assistant_message") or ""
+
+    # 1) init_devis / add_lines_bulk : description globale + plusieurs lignes
+    if action in ("init_devis", "add_lines_bulk"):
+        lignes = result.get("lignes") or []
+        for j in lignes:
+            try:
+                d.lignes.append(_build_line_from_json(j))
+            except Exception:
+                continue
+        if result.get("objet"):
+            d.meta.objet = str(result["objet"])
+        compute_totaux(d)
+
+    # 2) add_line : une seule ligne à ajouter
+    elif action == "add_line":
+        lj = result.get("ligne") or {}
+        try:
+            d.lignes.append(_build_line_from_json(lj))
+            compute_totaux(d)
+        except Exception:
+            pass
+
+    # 3) update_line : correction sur une ligne existante
+    elif action == "update_line":
+        idx = result.get("line_index")
+        fields = result.get("fields") or {}
+        if isinstance(idx, int) and 0 <= idx < len(d.lignes):
+            line = d.lignes[idx]
+            for k, v in fields.items():
+                if hasattr(line, k):
+                    setattr(line, k, v)
+            compute_totaux(d)
+
+    # 4) export_pdf : on marque l'intention d'export
+    elif action == "export_pdf":
+        S["pending_export"] = True
+        # On construit une URL absolue si API_BASE_URL est défini, sinon on garde une URL relative
+        base = os.getenv("API_BASE_URL") or ""
+        if base.endswith("/"):
+            base = base[:-1]
+        pdf_url = f"{base}/devis/{d.meta.devis_id}/pdf" if base else f"/devis/{d.meta.devis_id}/pdf"
+        # Si le LLM n'a pas fourni de texte, on met un message par défaut avec le lien
+        if not assistant_message:
+            assistant_message = (
+                "J'ai généré le PDF de ton devis. "
+                f"Tu peux le télécharger ici : {pdf_url}"
+            )
+        else:
+            # On enrichit simplement le message du LLM
+            assistant_message += f" Tu peux télécharger le PDF ici : {pdf_url}"
+
+    # 5) ask_clarification / just_chat : on ne touche pas au devis
+
+    # Fallback : si le devis est encore vide mais que le message ressemble à une demande
+    # de devis de travaux, on crée une ligne générique pour éviter de tout bloquer.
+    if not d.lignes:
+        lower = msg.lower()
+        if any(k in lower for k in ["devis", "chaudière", "chaudiere", "chauffage", "travaux", "rénovation", "renovation"]):
+            d.lignes.append(Ligne(
+                type="article",
+                designation=clean_designation(msg) or "Prestations de travaux",
+                qte=1.0,
+                unite="forfait",
+                pu_ht=None,
+                tva=0.2,
+                lot=None,
+                note="Ligne générée automatiquement à partir de ta demande, à détailler et chiffrer."
+            ))
+            compute_totaux(d)
+            if not assistant_message:
+                assistant_message = (
+                    "J'ai créé une première ligne générique pour ton devis. "
+                    "Tu peux maintenant préciser la quantité, le prix ou ajouter d'autres postes."
+                )
+
+    # Chips (boutons rapides) : visibles seulement si le devis a au moins une ligne
+    if d.lignes:
+        chips = ["Remise 10%", "Acompte 30%", "Frais 25 €", "Changer thème", "Aperçu HTML", "PDF"]
+    else:
+        chips = []
+
+    return {
+        "session_id": sid,
+        "assistant_message": assistant_message or "OK, j'ai mis à jour le devis.",
+        "chips": chips,
+        "devis_id": d.meta.devis_id,
+        "devis": d,
+    }
+
+
+
+@app.get("/devis/{devis_id}/pdf")
+def get_devis_pdf(devis_id: str):
+    d = DB["devis"].get(devis_id)
+    if not d:
+        raise HTTPException(status_code=404, detail="Devis introuvable.")
+    e = DB["entreprise"]
+    # On s'assure que les totaux sont à jour
+    compute_totaux(d)
+    pdf_bytes = render_pdf(d, e)
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{devis_id}.pdf"'},
+    )
+
+
+@app.post("/devis/{devis_id}/style")
+def update_devis_style(devis_id: str, style: StyleIn):
+    d = DB["devis"].get(devis_id)
+    if not d:
+        raise HTTPException(status_code=404, detail="Devis introuvable.")
+    # Mise à jour du thème
+    if style.theme:
+        d.meta.theme = style.theme
+        # Si aucune couleur précisée, on prend celle du thème
+        if not style.accent_hex:
+            d.meta.accent_hex = THEMES.get(style.theme, THEMES["modern_plus"])["accent_hex"]
+    # Mise à jour de la couleur d'accent si fournie
+    if style.accent_hex:
+        d.meta.accent_hex = style.accent_hex
+    return {"ok": True, "theme": d.meta.theme, "accent_hex": d.meta.accent_hex}
+root@ubuntu-4gb-nbg1-1:~/ia-devis#
