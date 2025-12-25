@@ -28,7 +28,7 @@ export function EnterpriseModal({ isOpen, onClose }: EnterpriseModalProps) {
             // Save to local storage
             setStoredEnt(form);
             // Sync with backend
-            await api.upsertEntreprise(form);
+            // await api.upsertEntreprise(form); // TODO: Implement update endpoint
             onClose();
         } catch (err) {
             console.error(err);
