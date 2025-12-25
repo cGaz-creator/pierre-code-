@@ -37,7 +37,7 @@ export function HomeView({ onStart }: HomeViewProps) {
 
     // Very slow, simple background blob to reduce lag
     // Removed complex multi-blob staggering
-    const backgroundBlob = {
+    const backgroundBlob: any = {
         animate: {
             scale: [1, 1.1, 1],
             opacity: [0.2, 0.3, 0.2],
