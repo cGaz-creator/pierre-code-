@@ -27,7 +27,7 @@ type ViewState = 'HOME' | 'ENTERPRISE' | 'CLIENT' | 'CHAT';
 export default function HomePage() {
     const {
         sessionId, messages, devis, isLoading,
-        startSession, sendMessage
+        startSession, sendMessage, resetSession
     } = useChatSession();
 
     // Reverted to clean state - no default enterprise
@@ -192,6 +192,7 @@ export default function HomePage() {
                                 onClick={() => {
                                     setStoredEnt({ nom: '' });
                                     setView('ENTERPRISE');
+                                    resetSession();
                                     toast.success("Déconnexion réussie");
                                 }}
                                 className="text-zinc-400 hover:text-red-500 transition-colors"

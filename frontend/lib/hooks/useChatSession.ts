@@ -17,7 +17,14 @@ export function useChatSession() {
         setMessages(prev => [...prev, { role, content }]);
     };
 
+    const resetSession = useCallback(() => {
+        setSessionId(null);
+        setMessages([]);
+        setDevis(null);
+    }, []);
+
     const startSession = useCallback(async (client?: Client, entrepriseNom?: string) => {
+        resetSession();
         setIsLoading(true);
         try {
             const res = await api.startChat(client?.id, client, undefined, entrepriseNom);
@@ -29,7 +36,7 @@ export function useChatSession() {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [resetSession]);
 
     const sendMessage = useCallback(async (content: string, includeDetailedDescription: boolean) => {
         if (!sessionId) return;
@@ -61,6 +68,7 @@ export function useChatSession() {
         devis,
         isLoading,
         startSession,
-        sendMessage
+        sendMessage,
+        resetSession
     };
 }
