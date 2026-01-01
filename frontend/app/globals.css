@@ -19,7 +19,7 @@
 }
 
 body {
-  @apply bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50 border-[10px] border-red-500;
+  @apply bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50;
   font-family: 'Inter', sans-serif;
 }
 
