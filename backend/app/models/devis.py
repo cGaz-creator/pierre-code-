@@ -55,3 +55,9 @@ class Devis(DevisBase, table=True):
     client: Optional[Client] = Relationship()
     
     lignes: List[Ligne] = Relationship(back_populates="devis")
+
+class DevisUpdate(SQLModel):
+    objet: Optional[str] = None
+    theme: Optional[str] = None
+    accent_hex: Optional[str] = None
+    statut: Optional[str] = None

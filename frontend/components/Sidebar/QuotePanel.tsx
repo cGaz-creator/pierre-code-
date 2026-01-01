@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Devis } from '../../lib/types';
 import { Button } from '../UI/Button';
 import { api } from '../../lib/api';
+import { Pencil, Check, X } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface QuotePanelProps {
     devis: Devis | null;
@@ -10,6 +12,31 @@ interface QuotePanelProps {
 }
 
 export function QuotePanel({ devis, includeDetailedDescription, onToggleDescription }: QuotePanelProps) {
+    const [isEditing, setIsEditing] = useState(false);
+    const [name, setName] = useState('');
+    const [isSavingName, setIsSavingName] = useState(false);
+
+    useEffect(() => {
+        if (devis) {
+            setName(devis.objet || `Devis #${devis.id.slice(0, 8)}`);
+        }
+    }, [devis]);
+
+    const handleSaveName = async () => {
+        if (!devis?.id || !name.trim()) return;
+        setIsSavingName(true);
+        try {
+            await api.updateDevis(devis.id, { objet: name });
+            toast.success("Nom modifié");
+            setIsEditing(false);
+            if (devis) devis.objet = name;
+        } catch (e) {
+            toast.error("Erreur modification");
+        } finally {
+            setIsSavingName(false);
+        }
+    };
+
     if (!devis) {
         return (
             <div className="h-full flex flex-col items-center justify-center text-zinc-400 p-8 border-l border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/30">
@@ -29,8 +56,36 @@ export function QuotePanel({ devis, includeDetailedDescription, onToggleDescript
             {/* Header */}
             <div className="p-5 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
                 <div className="flex justify-between items-start">
-                    <div>
-                        <h2 className="font-bold text-zinc-900 dark:text-zinc-100 text-lg">Devis #{devis.id.slice(0, 8)}</h2>
+                    <div className="flex-1 mr-4">
+                        {isEditing ? (
+                            <div className="flex items-center gap-2">
+                                <input
+                                    className="flex-1 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded px-2 py-1 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    autoFocus
+                                />
+                                <button onClick={handleSaveName} disabled={isSavingName} className="p-1 hover:bg-green-100 text-green-600 rounded">
+                                    <Check size={16} />
+                                </button>
+                                <button onClick={() => setIsEditing(false)} className="p-1 hover:bg-red-100 text-red-500 rounded">
+                                    <X size={16} />
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2 group">
+                                <h2 className="font-bold text-zinc-900 dark:text-zinc-100 text-lg truncate" title={devis.objet || devis.id}>
+                                    {devis.objet || `Devis #${devis.id.slice(0, 8)}`}
+                                </h2>
+                                <button
+                                    onClick={() => setIsEditing(true)}
+                                    className="p-1 text-zinc-400 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    title="Modifier le nom"
+                                >
+                                    <Pencil size={14} />
+                                </button>
+                            </div>
+                        )}
                         <div className="flex items-center gap-2 mt-1.5">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${devis.statut === 'Brouillon' ? 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400' : 'bg-green-100 text-green-700'
                                 }`}>

@@ -52,6 +52,12 @@ export const api = {
         return request<Devis[]>(`/devis?${params.toString()}`);
     },
 
+    updateDevis: (devisId: string, data: Partial<Devis>) =>
+        request<Devis>(`/devis/${devisId}`, {
+            method: 'PATCH',
+            body: JSON.stringify(data)
+        }),
+
     // Upload
     uploadFile: async (file: File) => {
         const formData = new FormData();
