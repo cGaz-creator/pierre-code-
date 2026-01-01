@@ -73,16 +73,16 @@ export function QuotePanel({ devis, includeDetailedDescription, onToggleDescript
                                 </button>
                             </div>
                         ) : (
-                            <div className="flex items-center gap-2 group">
-                                <h2 className="font-bold text-zinc-900 dark:text-zinc-100 text-lg truncate" title={devis.objet || devis.id}>
+                            <div className="flex items-center gap-2 group w-full">
+                                <h2 className="font-bold text-zinc-900 dark:text-zinc-100 text-lg truncate flex-1" title={devis.objet || devis.id}>
                                     {devis.objet || `Devis #${devis.id.slice(0, 8)}`}
                                 </h2>
                                 <button
                                     onClick={() => setIsEditing(true)}
-                                    className="p-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-md text-zinc-500 dark:text-zinc-400 transition-all ml-2"
+                                    className="p-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 rounded-md text-blue-600 dark:text-blue-400 transition-all ml-2 shrink-0"
                                     title="Modifier le nom"
                                 >
-                                    <Pencil size={14} />
+                                    <Pencil size={16} />
                                 </button>
                             </div>
                         )}
