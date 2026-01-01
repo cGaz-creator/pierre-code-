@@ -17,10 +17,10 @@ export function useChatSession() {
         setMessages(prev => [...prev, { role, content }]);
     };
 
-    const startSession = useCallback(async (client?: Client) => {
+    const startSession = useCallback(async (client?: Client, entrepriseNom?: string) => {
         setIsLoading(true);
         try {
-            const res = await api.startChat(client?.id, client);
+            const res = await api.startChat(client?.id, client, undefined, entrepriseNom);
             setSessionId(res.session_id);
             setDevis(res.devis);
             addMessage('assistant', res.assistant_message);

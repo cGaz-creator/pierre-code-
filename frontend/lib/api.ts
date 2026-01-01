@@ -26,10 +26,10 @@ export const api = {
     health: () => request('/health'),
 
     // Chat
-    startChat: (clientId?: string, client?: Client, theme?: string) =>
+    startChat: (clientId?: string, client?: Client, theme?: string, entrepriseNom?: string) =>
         request<ChatResponse>('/chat/start', {
             method: 'POST',
-            body: JSON.stringify({ client_id: clientId, client, theme })
+            body: JSON.stringify({ client_id: clientId, client, theme, entreprise_nom: entrepriseNom })
         }),
 
     chatTurn: (sessionId: string, message: string, includeDetailedDescription: boolean = false, priceList: any[] = []) =>

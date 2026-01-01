@@ -107,11 +107,12 @@ class StartIn(BaseModel):
     client_id: Optional[str] = None
     client: Optional[dict] = None # We accept a dict to be flexible, or we could use ClientBase
     theme: str = "modern_plus"
+    entreprise_nom: Optional[str] = None
 
 @router.post("/chat/start")
 def chat_start(inp: StartIn, session: Session = Depends(get_session)):
     # Create new Devis
-    new_devis = Devis(theme=inp.theme)
+    new_devis = Devis(theme=inp.theme, entreprise_nom=inp.entreprise_nom)
     
     if inp.client_id:
         new_devis.client_id = inp.client_id

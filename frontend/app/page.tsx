@@ -68,7 +68,7 @@ export default function HomePage() {
         setCurrentClient(client);
         setView('CHAT');
         try {
-            startSession(client);
+            startSession(client, storedEnt.nom);
             toast.success("IA Connectée");
         } catch (e) {
             toast.error("Erreur connexion");
