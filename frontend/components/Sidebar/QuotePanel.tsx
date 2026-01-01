@@ -13,6 +13,7 @@ interface QuotePanelProps {
 
 export function QuotePanel({ devis, includeDetailedDescription, onToggleDescription }: QuotePanelProps) {
     const [isEditing, setIsEditing] = useState(false);
+    console.log("PENCIL DEBUG: QuotePanel Loaded");
     const [name, setName] = useState('');
     const [isSavingName, setIsSavingName] = useState(false);
 
