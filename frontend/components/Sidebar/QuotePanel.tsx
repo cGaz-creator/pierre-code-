@@ -79,7 +79,7 @@ export function QuotePanel({ devis, includeDetailedDescription, onToggleDescript
                                 </h2>
                                 <button
                                     onClick={() => setIsEditing(true)}
-                                    className="p-1 text-zinc-400 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    className="p-1 text-zinc-400 hover:text-blue-500 transition-colors"
                                     title="Modifier le nom"
                                 >
                                     <Pencil size={14} />
