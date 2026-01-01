@@ -54,7 +54,7 @@ export function QuotePanel({ devis, includeDetailedDescription, onToggleDescript
     return (
         <div className="h-full flex flex-col border-l border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950">
             {/* Header */}
-            <div className="p-5 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+            <div className="p-5 border-b border-red-500 bg-white dark:bg-zinc-900">
                 <div className="flex justify-between items-start">
                     <div className="flex-1 mr-4">
                         {isEditing ? (
@@ -79,7 +79,7 @@ export function QuotePanel({ devis, includeDetailedDescription, onToggleDescript
                                 </h2>
                                 <button
                                     onClick={() => setIsEditing(true)}
-                                    className="p-1 text-zinc-400 hover:text-blue-500 transition-colors"
+                                    className="p-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-md text-zinc-500 dark:text-zinc-400 transition-all ml-2"
                                     title="Modifier le nom"
                                 >
                                     <Pencil size={14} />
