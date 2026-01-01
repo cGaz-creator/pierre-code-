@@ -28,6 +28,14 @@ def get_devis_pdf(devis_id: str, session: Session = Depends(get_session)):
     
     # Get Entreprise (Singleton ID=1)
     # Get associated Enterprise
+    # 2. Get Entreprise
+    # Fallback: if devis has no entreprise_nom (old data), try to get from client
+    if not devis.entreprise_nom and devis.client and devis.client.entreprise_nom:
+        devis.entreprise_nom = devis.client.entreprise_nom
+        session.add(devis)
+        session.commit()
+        session.refresh(devis)
+    
     if not devis.entreprise_nom:
          raise HTTPException(status_code=400, detail="Devis sans entreprise associée")
 
