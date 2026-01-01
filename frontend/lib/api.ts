@@ -32,14 +32,15 @@ export const api = {
             body: JSON.stringify({ client_id: clientId, client, theme, entreprise_nom: entrepriseNom })
         }),
 
-    chatTurn: (sessionId: string, message: string, includeDetailedDescription: boolean = false, priceList: any[] = []) =>
+    chatTurn: (sessionId: string, message: string, includeDetailedDescription: boolean = false, priceList: any[] = [], imageBase64?: string) =>
         request<ChatResponse>('/chat/turn', {
             method: 'POST',
             body: JSON.stringify({
                 session_id: sessionId,
                 message,
                 includeDetailedDescription,
-                price_list: priceList
+                price_list: priceList,
+                image_base64: imageBase64
             })
         }),
 

@@ -41,24 +41,47 @@ def propose_quote_update(
     message_user: str,
     devis: Devis,
     include_detailed_description: bool = False,
-    price_list: list[dict] = None
+    price_list: list[dict] = None,
+    image_base64: str = None
 ) -> LLMQuoteResponse:
     
     # Context construction
-    context = {
+    context_data = {
         "current_quote_lines": [l.dict() for l in devis.lignes],
         "price_list_catalog": price_list or [],
         "user_message": message_user,
         "include_detailed_description": include_detailed_description
     }
+
+    user_content = json.dumps(context_data, default=str)
+    
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+    if image_base64:
+        # Multimodal message
+        messages.append({
+            "role": "user", 
+            "content": [
+                {
+                    "type": "text", 
+                    "text": f"Voici le contexte JSON (dont ma demande) : {user_content}. ANALYSE L'IMAGE FOURNIE pour extraire les travaux à faire."
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{image_base64}"
+                    }
+                }
+            ]
+        })
+    else:
+        # Standard text message
+        messages.append({"role": "user", "content": user_content})
     
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini", # or gpt-3.5-turbo
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": json.dumps(context, default=str)}
-            ],
+            messages=messages,
             response_format={"type": "json_object"},
             temperature=0.2
         )

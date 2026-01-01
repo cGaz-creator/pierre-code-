@@ -17,6 +17,7 @@ class TurnIn(BaseModel):
     message: str
     includeDetailedDescription: bool = False
     price_list: Optional[List[dict]] = None
+    image_base64: Optional[str] = None
 
 @router.post("/chat/turn")
 def chat_turn(inp: TurnIn, session: Session = Depends(get_session)):
@@ -34,7 +35,8 @@ def chat_turn(inp: TurnIn, session: Session = Depends(get_session)):
         message_user=inp.message,
         devis=devis,
         include_detailed_description=inp.includeDetailedDescription,
-        price_list=inp.price_list
+        price_list=inp.price_list,
+        image_base64=inp.image_base64
     )
     
     # 3. Apply actions

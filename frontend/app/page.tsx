@@ -92,7 +92,7 @@ export default function HomePage() {
                             <ChatInterface
                                 messages={messages}
                                 isLoading={isLoading}
-                                onSendMessage={(msg) => sendMessage(msg, includeDetails)}
+                                onSendMessage={(msg, img) => sendMessage(msg, includeDetails, img)}
                             />
                         </div>
 

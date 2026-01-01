@@ -38,20 +38,17 @@ export function useChatSession() {
         }
     }, [resetSession]);
 
-    const sendMessage = useCallback(async (content: string, includeDetailedDescription: boolean) => {
+    const sendMessage = useCallback(async (content: string, includeDetailedDescription: boolean, imageBase64?: string) => {
         if (!sessionId) return;
 
-        addMessage('user', content);
+        addMessage('user', content || (imageBase64 ? "Envoi d'une image..." : ""));
         setIsLoading(true);
 
         try {
-            // Retrieve price list from local storage manually since we can't easily access the hook state here without prop drilling
-            // But wait, we are in a hook. We can use usePersistedState here too?
-            // Yes, let's import it.
             const storedPriceList = localStorage.getItem('price_list');
             const priceList = storedPriceList ? JSON.parse(storedPriceList) : [];
 
-            const res = await api.chatTurn(sessionId, content, includeDetailedDescription, priceList);
+            const res = await api.chatTurn(sessionId, content, includeDetailedDescription, priceList, imageBase64);
             setDevis(res.devis);
             addMessage('assistant', res.assistant_message);
         } catch (error) {
