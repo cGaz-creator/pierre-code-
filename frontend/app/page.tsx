@@ -13,7 +13,7 @@ import { useChatSession } from '../lib/hooks/useChatSession';
 import { usePersistedState } from '../lib/hooks/usePersistedState';
 import { Entreprise, Client } from '../lib/types';
 import { AnimateTransition } from '../components/UI/AnimateTransition';
-import { MessageSquarePlus, LogOut } from 'lucide-react';
+import { MessageSquarePlus, LogOut, Menu, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 // Views
@@ -30,10 +30,16 @@ export default function HomePage() {
         startSession, sendMessage, resetSession
     } = useChatSession();
 
-    // Reverted to clean state - no default enterprise
     const [storedEnt, setStoredEnt] = usePersistedState<Entreprise>('entreprise', { nom: '' });
+    const currentTheme = typeof window !== 'undefined' ? localStorage.getItem('theme') : 'light'; // Simple check, or rely on ThemeToggle context if available. 
+    // Actually ThemeToggle handles theme, so we don't need to manually read here usually, but for icons color maybe.
+
     const [view, setView] = useState<ViewState>('HOME');
     const [currentClient, setCurrentClient] = useState<Client | null>(null);
+
+    // Mobile States
+    const [mobileTab, setMobileTab] = useState<'CHAT' | 'QUOTE'>('CHAT');
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const [showEntModal, setShowEntModal] = useState(false);
     const [showPriceModal, setShowPriceModal] = useState(false);
@@ -50,8 +56,6 @@ export default function HomePage() {
 
     // Flow Management
     const handleStart = () => {
-        // Strict flow: If no enterprise, forcing enterprise creation.
-        // Professional tools requires setup.
         if (!storedEnt.nom) {
             setView('ENTERPRISE');
         } else {
@@ -75,6 +79,14 @@ export default function HomePage() {
         }
     };
 
+    const handleLogout = () => {
+        setStoredEnt({ nom: '' });
+        setView('ENTERPRISE');
+        resetSession();
+        setIsMobileMenuOpen(false);
+        toast.success("Déconnexion réussie");
+    };
+
     // Render Content based on View
     const renderContent = () => {
         switch (view) {
@@ -86,59 +98,87 @@ export default function HomePage() {
                 return <AnimateTransition key="client"><ClientView onNext={handleClientSubmit} onBack={() => setView('HOME')} entrepriseNom={storedEnt.nom} /></AnimateTransition>;
             case 'CHAT':
                 return (
-                    <AnimateTransition key="chat" className="flex h-full">
-                        {/* Left: Chat */}
-                        <div className="flex-1 flex flex-col min-w-0 mx-auto w-full p-0 md:p-4 bg-zinc-50/50 dark:bg-black/20">
-                            <ChatInterface
-                                messages={messages}
-                                isLoading={isLoading}
-                                onSendMessage={(msg, img) => sendMessage(msg, includeDetails, img)}
-                            />
+                    <div className="flex flex-col h-full bg-zinc-50 dark:bg-zinc-950">
+                        {/* Mobile Tabs */}
+                        <div className="xl:hidden flex border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 sticky top-0 z-40">
+                            <button
+                                onClick={() => setMobileTab('CHAT')}
+                                className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${mobileTab === 'CHAT'
+                                    ? 'border-blue-600 text-blue-600'
+                                    : 'border-transparent text-zinc-500 dark:text-zinc-400'
+                                    }`}
+                            >
+                                Discussion
+                            </button>
+                            <button
+                                onClick={() => setMobileTab('QUOTE')}
+                                className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${mobileTab === 'QUOTE'
+                                    ? 'border-blue-600 text-blue-600'
+                                    : 'border-transparent text-zinc-500 dark:text-zinc-400'
+                                    }`}
+                            >
+                                Devis {devis ? `(${devis.totaux.ttc.toFixed(0)}€)` : ''}
+                            </button>
                         </div>
 
-                        {/* Right: Sidebar */}
-                        <div className="w-[400px] border-l border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col shrink-0 hidden xl:flex">
-                            <ClientWidget
-                                currentClient={currentClient}
-                                onClientChange={setCurrentClient}
-                                entrepriseNom={storedEnt.nom}
-                            />
-
-                            {/* Tabs */}
-                            <div className="flex border-b border-zinc-200 dark:border-zinc-800">
-                                <button
-                                    onClick={() => setSidebarTab('CURRENT')}
-                                    className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${sidebarTab === 'CURRENT'
-                                        ? 'border-blue-600 text-blue-600'
-                                        : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300'
-                                        }`}
-                                >
-                                    En cours
-                                </button>
-                                <button
-                                    onClick={() => setSidebarTab('HISTORY')}
-                                    className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${sidebarTab === 'HISTORY'
-                                        ? 'border-blue-600 text-blue-600'
-                                        : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300'
-                                        }`}
-                                >
-                                    Historique
-                                </button>
+                        <div className="flex-1 flex min-h-0 relative">
+                            {/* Chat Area */}
+                            <div className={`flex-1 flex flex-col min-w-0 mx-auto w-full p-0 md:p-4 bg-zinc-50/50 dark:bg-black/20 ${mobileTab === 'CHAT' ? 'flex' : 'hidden xl:flex'
+                                }`}>
+                                <ChatInterface
+                                    messages={messages}
+                                    isLoading={isLoading}
+                                    onSendMessage={(msg, img) => sendMessage(msg, includeDetails, img)}
+                                />
                             </div>
 
-                            <div className="flex-1 overflow-hidden">
-                                {sidebarTab === 'CURRENT' ? (
-                                    <QuotePanel
-                                        devis={devis}
-                                        includeDetailedDescription={includeDetails}
-                                        onToggleDescription={setIncludeDetails}
+                            {/* Sidebar Area */}
+                            <div className={`flex-col shrink-0 border-l border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 w-full xl:w-[400px] ${mobileTab === 'QUOTE' ? 'flex' : 'hidden xl:flex'
+                                }`}>
+                                <div className="hidden xl:block">
+                                    <ClientWidget
+                                        currentClient={currentClient}
+                                        onClientChange={setCurrentClient}
+                                        entrepriseNom={storedEnt.nom}
                                     />
-                                ) : (
-                                    <QuoteHistoryPanel entrepriseNom={storedEnt.nom} />
-                                )}
+                                </div>
+
+                                {/* Tabs Desktop only usually, but acceptable on mobile full Quote view */}
+                                <div className="flex border-b border-zinc-200 dark:border-zinc-800">
+                                    <button
+                                        onClick={() => setSidebarTab('CURRENT')}
+                                        className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${sidebarTab === 'CURRENT'
+                                            ? 'border-blue-600 text-blue-600'
+                                            : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300'
+                                            }`}
+                                    >
+                                        En cours
+                                    </button>
+                                    <button
+                                        onClick={() => setSidebarTab('HISTORY')}
+                                        className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${sidebarTab === 'HISTORY'
+                                            ? 'border-blue-600 text-blue-600'
+                                            : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300'
+                                            }`}
+                                    >
+                                        Historique
+                                    </button>
+                                </div>
+
+                                <div className="flex-1 overflow-hidden">
+                                    {sidebarTab === 'CURRENT' ? (
+                                        <QuotePanel
+                                            devis={devis}
+                                            includeDetailedDescription={includeDetails}
+                                            onToggleDescription={setIncludeDetails}
+                                        />
+                                    ) : (
+                                        <QuoteHistoryPanel entrepriseNom={storedEnt.nom} />
+                                    )}
+                                </div>
                             </div>
                         </div>
-                    </AnimateTransition>
+                    </div>
                 );
         }
     };
@@ -146,16 +186,16 @@ export default function HomePage() {
     return (
         <div className="flex flex-col h-screen font-sans text-base transition-colors duration-300">
             {/* Header */}
-            <header className="h-20 bg-white/90 dark:bg-black/90 backdrop-blur-sm border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-8 shrink-0 z-50 sticky top-0 transition-colors duration-300">
+            <header className="h-16 md:h-20 bg-white/90 dark:bg-black/90 backdrop-blur-sm border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4 md:px-8 shrink-0 z-50 sticky top-0 transition-colors duration-300">
                 <div
-                    className="font-bold text-2xl tracking-tighter cursor-pointer hover:opacity-80 transition"
+                    className="font-bold text-xl md:text-2xl tracking-tighter cursor-pointer hover:opacity-80 transition"
                     onClick={() => setView('HOME')}
                 >
                     <span className="text-zinc-900 dark:text-white">Devis</span>
                     <span className="text-blue-600">.ai</span>
                 </div>
 
-                {/* Central Navigation */}
+                {/* Desktop Nav */}
                 <nav className="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2">
                     <button
                         onClick={() => {
@@ -180,8 +220,8 @@ export default function HomePage() {
                     </a>
                 </nav>
 
-                <div className="flex items-center gap-4">
-                    {/* Enterprise Menu -> Logout */}
+                <div className="flex items-center gap-2 md:gap-4">
+                    {/* Enterprise Menu -> Logout (Desktop) */}
                     {storedEnt.nom && (
                         <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800/50 rounded-full border border-zinc-200 dark:border-zinc-700">
                             <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-300 max-w-[100px] truncate">
@@ -189,12 +229,7 @@ export default function HomePage() {
                             </span>
                             <div className="w-px h-3 bg-zinc-300 dark:bg-zinc-600 mx-1"></div>
                             <button
-                                onClick={() => {
-                                    setStoredEnt({ nom: '' });
-                                    setView('ENTERPRISE');
-                                    resetSession();
-                                    toast.success("Déconnexion réussie");
-                                }}
+                                onClick={handleLogout}
                                 className="text-zinc-400 hover:text-red-500 transition-colors"
                                 title="Se déconnecter"
                             >
@@ -203,18 +238,60 @@ export default function HomePage() {
                         </div>
                     )}
 
-                    <button
-                        onClick={() => setShowFeedbackModal(true)}
-                        className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors text-sm font-medium"
-                    >
-                        Feedback
-                    </button>
+                    <div className="hidden md:block">
+                        <button
+                            onClick={() => setShowFeedbackModal(true)}
+                            className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors text-sm font-medium"
+                        >
+                            Feedback
+                        </button>
+                    </div>
 
-                    <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-800"></div>
+                    <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-800 hidden md:block"></div>
 
                     <ThemeToggle />
+
+                    {/* Mobile Hamburger */}
+                    <button
+                        className="md:hidden p-2 text-zinc-600 dark:text-zinc-300"
+                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                    >
+                        {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                    </button>
                 </div>
             </header>
+
+            {/* Mobile Menu Dropdown */}
+            {isMobileMenuOpen && (
+                <div className="md:hidden absolute top-16 left-0 right-0 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 p-4 shadow-xl z-40 flex flex-col gap-4 animate-in slide-in-from-top-2">
+                    {storedEnt.nom && (
+                        <div className="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-800 rounded-lg">
+                            <span className="font-semibold text-zinc-900 dark:text-white">{storedEnt.nom}</span>
+                            <button onClick={handleLogout} className="text-red-500 text-sm font-medium flex items-center gap-2">
+                                <LogOut size={16} /> Déconnexion
+                            </button>
+                        </div>
+                    )}
+                    <button
+                        onClick={() => { setShowPriceModal(true); setIsMobileMenuOpen(false); }}
+                        className="text-left px-2 py-2 text-lg font-medium text-zinc-700 dark:text-zinc-200 border-b border-zinc-100 dark:border-zinc-800"
+                    >
+                        📚 Mon Catalogue
+                    </button>
+                    <button
+                        onClick={() => { setShowFeedbackModal(true); setIsMobileMenuOpen(false); }}
+                        className="text-left px-2 py-2 text-lg font-medium text-zinc-700 dark:text-zinc-200 border-b border-zinc-100 dark:border-zinc-800"
+                    >
+                        💬 Feedback
+                    </button>
+                    <a
+                        href="mailto:contact@devis.ai"
+                        className="text-left px-2 py-2 text-lg font-medium text-zinc-700 dark:text-zinc-200"
+                    >
+                        📧 Contact
+                    </a>
+                </div>
+            )}
 
             {/* Main Content */}
             <main className="flex-1 overflow-y-auto overflow-x-hidden relative scroll-smooth bg-zinc-50 dark:bg-black transition-colors duration-300">
