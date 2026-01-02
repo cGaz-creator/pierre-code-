@@ -62,8 +62,17 @@ def get_devis_pdf(devis_id: str, session: Session = Depends(get_session)):
     
     pdf_bytes = generate_pdf(devis, entreprise)
     
+    # Determine filename
+    filename = f"devis-{devis_id}.pdf"
+    if devis.objet:
+        # Basic sanitization
+        safe_name = "".join([c if c.isalnum() or c in (' ', '-', '_') else '_' for c in devis.objet])
+        safe_name = safe_name.strip().replace(' ', '_')
+        if safe_name:
+            filename = f"{safe_name}.pdf"
+
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="devis-{devis_id}.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
