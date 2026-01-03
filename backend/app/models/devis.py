@@ -32,8 +32,12 @@ class DevisBase(SQLModel):
     objet: Optional[str] = None
     
     # Conditions
+    # Conditions
     validite_jours: int = 30
+    date_debut: Optional[dt_date] = None # Date prévisionnelle début
+    duree_travaux: Optional[str] = None  # "2 semaines"
     paiement: str = "Virement"
+    conditions_reglement: Optional[str] = "30% à la commande, solde à la réception"
     notes: Optional[str] = None
     
     # Remise globale / Acompte (stored as JSON or simple fields)

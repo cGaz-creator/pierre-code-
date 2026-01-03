@@ -107,94 +107,161 @@ def generate_pdf(d: Devis, e: Entreprise) -> bytes:
                 c.drawImage(img_reader, w - 40*mm, h - 30*mm, 20*mm, 20*mm, preserveAspectRatio=True, mask="auto")
         except: pass
 
-    # En-tête
+    # En-tête (Gauche: Entreprise, Droite: Client + Infos Devis)
+    y = h - 30*mm
+    
+    # --- Col Gauche : Entreprise ---
+    c.setFont("Helvetica-Bold", 12); c.setFillColor(colors.black)
+    c.drawString(20*mm, y, e.nom)
+    y -= 5*mm
+    c.setFont("Helvetica", 9); c.setFillColor(colors.grey)
+    def draw_ent_line(txt):
+        nonlocal y
+        if txt: c.drawString(20*mm, y, txt); y -= 4*mm
+
+    draw_ent_line(e.adresse)
+    draw_ent_line(f"{e.forme or ''} au capital social".strip() if e.forme else "")
+    draw_ent_line(f"SIRET : {e.siret}")
+    if e.rm_rcs: draw_ent_line(f"RCS/RM : {e.rm_rcs}")
+    if e.tva_intracom: draw_ent_line(f"TVA : {e.tva_intracom}")
+    draw_ent_line(e.email)
+    draw_ent_line(e.tel)
+    
+    # --- Col Droite : Devis & Client ---
+    y_right = h - 30*mm
     c.setFillColor(accent)
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(20*mm, h-18*mm, f"Devis {d.id}")
+    c.setFont("Helvetica-Bold", 18)
+    c.drawRightString(190*mm, y_right, f"DEVIS N° {d.id}")
+    y_right -= 8*mm
+    
+    c.setFillColor(colors.black); c.setFont("Helvetica", 10)
+    c.drawRightString(190*mm, y_right, f"Date : {d.date}")
+    y_right -= 5*mm
+    if d.validite_jours:
+        c.drawRightString(190*mm, y_right, f"Valable jusqu'au : {d.date} (+{d.validite_jours}j)")
+        y_right -= 5*mm
+
+    y_right -= 5*mm
+    # Client Box
+    c.setFillColor(colors.whitesmoke)
+    c.roundRect(100*mm, y_right - 35*mm, 90*mm, 35*mm, 4*mm, fill=1, stroke=0)
     c.setFillColor(colors.black)
-    c.setFont("Helvetica", 9)
-    c.drawString(20*mm, h-24*mm, f"Date : {d.date}   Devise : {d.devise}")
-    if d.objet:
-        c.setFont("Helvetica", 10)
-        c.drawString(20*mm, h-29*mm, f"Objet : {d.objet}")
-
-    # Cartes
-    y = h - 40*mm
-    if theme_cfg.get("cards"):
-        c.setFillColor(colors.whitesmoke); c.roundRect(18*mm, y-24*mm, 80*mm, 26*mm, 4*mm, fill=1, stroke=0)
-        c.roundRect(112*mm, y-24*mm, 80*mm, 26*mm, 4*mm, fill=1, stroke=0)
-    c.setFillColor(colors.black)
-
-    c.setFont("Helvetica-Bold", 11); c.drawString(20*mm, y, "Entreprise")
-    c.setFont("Helvetica", 9)
-    y1 = y-6*mm
-    _draw_kv(c, 20*mm, y1, "Nom", e.nom, True); y1-=5*mm
-    _draw_kv(c, 20*mm, y1, "SIRET", e.siret or ""); y1-=5*mm
-    _draw_kv(c, 20*mm, y1, "Email", e.email or ""); y1-=5*mm
-    _draw_kv(c, 20*mm, y1, "Tel", e.tel or "")
-
-    c.setFont("Helvetica-Bold", 11); c.drawString(114*mm, y, "Client")
+    
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(105*mm, y_right - 6*mm, "Client :")
+    c.setFont("Helvetica-Bold", 11)
     if d.client:
-        cl = d.client
-        y2 = y-6*mm; c.setFont("Helvetica", 9)
-        _draw_kv(c, 114*mm, y2, "Nom", cl.nom or "", True); y2-=5*mm
-        _draw_kv(c, 114*mm, y2, "Adresse", cl.adresse or ""); y2-=5*mm
-        _draw_kv(c, 114*mm, y2, "Email", cl.email or ""); y2-=5*mm
+        c.drawString(105*mm, y_right - 12*mm, d.client.nom)
+        c.setFont("Helvetica", 10)
+        c.drawString(105*mm, y_right - 17*mm, d.client.adresse or "Adresse non renseignée")
+        c.drawString(105*mm, y_right - 22*mm, d.client.email or "")
+        c.drawString(105*mm, y_right - 27*mm, d.client.tel or "")
     else:
-        y2 = y-6*mm
-        c.drawString(114*mm, y2, "Client non renseigné")
+        c.drawString(105*mm, y_right - 12*mm, "Client Inconnu")
+
+    # Objet & Dates travaux
+    y = min(y, y_right - 40*mm) - 10*mm
+    if d.objet:
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(20*mm, y, f"Objet : {d.objet}")
+        y -= 6*mm
+    
+    if d.date_debut or d.duree_travaux:
+        c.setFont("Helvetica", 9)
+        txt = "Travaux : "
+        if d.date_debut: txt += f"Début le {d.date_debut} "
+        if d.duree_travaux: txt += f"(Durée estimée : {d.duree_travaux})"
+        c.drawString(20*mm, y, txt)
+        y -= 6*mm
 
     # Tableau Lignes
-    y = y2 - 15*mm
+    y -= 5*mm
     c.setLineWidth(0.6)
     c.setFillColor(head_fill)
-    c.rect(20*mm, y, 170*mm, 8*mm, fill=1, stroke=0) # Reduced width slightly
+    c.rect(20*mm, y, 170*mm, 8*mm, fill=1, stroke=0)
     c.setFillColor(colors.black)
-    c.setFont("Helvetica-Bold", 10)
+    c.setFont("Helvetica-Bold", 9)
+    
+    # Headers
     c.drawString(22*mm,  y+2.2*mm, "Désignation")
-    c.drawRightString(140*mm, y+2.2*mm, "Qté")
-    c.drawRightString(160*mm, y+2.2*mm, "PU HT")
+    c.drawRightString(130*mm, y+2.2*mm, "Qté")
+    c.drawRightString(150*mm, y+2.2*mm, "PU HT")
+    c.drawRightString(165*mm, y+2.2*mm, "TVA")
     c.drawRightString(185*mm, y+2.2*mm, "Total HT")
-    y -= 6*mm
-    c.line(20*mm, y, 190*mm, y)
-    y -= 4*mm
+    y -= 6*mm # Bottom of header
 
     c.setFont("Helvetica", 9)
     for l in d.lignes:
-        if y < 40*mm: c.showPage(); w, h = A4; y = h - 30*mm
+        if y < 60*mm: c.showPage(); w, h = A4; y = h - 30*mm
         
-        des = (l.designation or "")[:90]
+        # Designation wraps
+        des = (l.designation or "")
+        # Simple wrap logic or truncation
+        if len(des) > 60: des = des[:60] + "..."
+        
         c.drawString(22*mm, y, des)
-        c.drawRightString(140*mm, y, f"{l.qte:.2f} {l.unite}")
+        c.drawRightString(130*mm, y, f"{l.qte:g} {l.unite}")
         pu = "-" if l.pu_ht is None else _money(l.pu_ht)
-        c.drawRightString(160*mm, y, pu)
+        c.drawRightString(150*mm, y, pu)
+        c.drawRightString(165*mm, y, f"{l.tva*100:.0f}%")
         c.drawRightString(185*mm, y, _money(l.total_ht or 0.0))
         y -= 5*mm
         if l.note:
             c.setFont("Helvetica-Oblique", 8); c.setFillColor(colors.grey)
-            c.drawString(22*mm, y, f"• {l.note[:100]}")
+            c.drawString(22*mm, y, f"  {l.note[:90]}")
             c.setFillColor(colors.black); c.setFont("Helvetica", 9)
             y -= 4*mm
 
     # Totaux
-    y -= 6*mm
-    c.setLineWidth(0.6); c.line(120*mm, y, 190*mm, y); y -= 4*mm
+    y -= 5*mm
+    c.setLineWidth(0.3); c.line(120*mm, y, 190*mm, y); y -= 4*mm
     
-    c.setFont("Helvetica-Bold", 10); c.drawRightString(170*mm, y, "Total HT :")
-    c.setFont("Helvetica", 10); c.drawRightString(190*mm, y, _money(totaux["ht"])); y -= 5*mm
-
-    c.setFont("Helvetica-Bold", 10); c.drawRightString(170*mm, y, "Total TVA :")
-    c.setFont("Helvetica", 10); c.drawRightString(190*mm, y, _money(totaux["tva"])); y -= 6*mm
-
+    # Total Bloc
+    c.setFont("Helvetica", 10); 
+    c.drawRightString(170*mm, y, "Total HT :"); c.drawRightString(190*mm, y, _money(totaux["ht"])); y -= 5*mm
+    c.drawRightString(170*mm, y, "Total TVA :"); c.drawRightString(190*mm, y, _money(totaux["tva"])); y -= 6*mm
+    
     c.setFillColor(accent); c.setFont("Helvetica-Bold", 12)
-    c.drawRightString(170*mm, y, "Total TTC :")
-    c.drawRightString(190*mm, y, _money(totaux["ttc"]))
-    c.setFillColor(colors.black); y -= 8*mm
+    c.drawRightString(170*mm, y, "Net à payer :"); c.drawRightString(190*mm, y, _money(totaux["ttc"]))
+    c.setFillColor(colors.black); y -= 10*mm
 
-    # Description détaillée (New feature)
+    # --- Footer Block (Mentions Légales & Signature) ---
+    
+    # Check space
+    if y < 50*mm: c.showPage(); w, h = A4; y = h - 30*mm
+    
+    # Bank
+    if e.iban:
+        c.setFont("Helvetica-Bold", 9); c.drawString(20*mm, y, "Coordonnées Bancaires")
+        y -= 4*mm
+        c.setFont("Helvetica", 8)
+        c.drawString(20*mm, y, f"IBAN : {e.iban}  BIC : {e.bic}")
+        y -= 6*mm
+
+    # Legal Text
+    c.setFont("Helvetica", 8); c.setFillColor(colors.darkgrey)
+    legal_text = [
+        f"Validité du devis : {d.validite_jours} jours.",
+        f"Conditions de règlement : {d.conditions_reglement or 'À réception'}.",
+        "Assurance : " + (f"Garantie Décennale {e.assurance_nom} ({e.assurance_contact})" if e.assurance_nom else "Non spécifiée (Obligatoire pour le gros œuvre)"),
+        "En cas de retard de paiement, application d'une indemnité forfaitaire de 40€.",
+    ]
+    for line in legal_text:
+        c.drawString(20*mm, y, line)
+        y -= 3.5*mm
+    
+    # Signature Box
+    y_sig = y - 10*mm
+    c.setFillColor(colors.black); c.setStrokeColor(colors.black)
+    c.rect(130*mm, y_sig - 25*mm, 60*mm, 25*mm, stroke=1, fill=0)
+    c.setFont("Helvetica-Bold", 9)
+    c.drawString(132*mm, y_sig - 4*mm, "Bon pour accord")
+    c.setFont("Helvetica", 8)
+    c.drawString(132*mm, y_sig - 8*mm, "Date et Signature :")
+
+    # Description détaillée (Restored)
     if d.detailed_description:
-        if y < 60*mm: c.showPage(); w, h = A4; y = h - 30*mm
-        y -= 10*mm
+        c.showPage(); w, h = A4; y = h - 30*mm
         c.setFont("Helvetica-Bold", 11)
         c.drawString(20*mm, y, "Description détaillée des travaux")
         y -= 5*mm
@@ -205,7 +272,6 @@ def generate_pdf(d: Devis, e: Entreprise) -> bytes:
         for line in lines:
             text_obj.textLine(line)
         c.drawText(text_obj)
-        y -= (len(lines) * 4*mm + 10*mm)
 
     c.showPage(); c.save()
     return buf.getvalue()

@@ -216,6 +216,36 @@ export function EnterpriseView({ initialData, onNext }: EnterpriseViewProps) {
                                         </div>
                                     </div>
 
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="space-y-1">
+                                            <label className="text-xs font-semibold text-zinc-500">Forme</label>
+                                            <input
+                                                value={formData.forme || ''}
+                                                onChange={e => setFormData({ ...formData, forme: e.target.value })}
+                                                className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                                placeholder="SAS, EI..."
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-xs font-semibold text-zinc-500">RCS / RM</label>
+                                            <input
+                                                value={formData.rm_rcs || ''}
+                                                onChange={e => setFormData({ ...formData, rm_rcs: e.target.value })}
+                                                className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                                placeholder="Paris B 123..."
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-xs font-semibold text-zinc-500">TVA Intra</label>
+                                            <input
+                                                value={formData.tva_intracom || ''}
+                                                onChange={e => setFormData({ ...formData, tva_intracom: e.target.value })}
+                                                className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                                placeholder="FR 12..."
+                                            />
+                                        </div>
+                                    </div>
+
                                     <div className="space-y-1">
                                         <label className="text-xs font-semibold text-zinc-500">Email</label>
                                         <div className="relative">

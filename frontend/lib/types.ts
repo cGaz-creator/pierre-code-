@@ -34,8 +34,9 @@ export interface Client {
 export interface Entreprise {
     id?: number;
     nom: string;
-    forme?: string;
+    forme?: string; // SARL, SAS...
     siret?: string;
+    rm_rcs?: string;
     tva_intracom?: string;
     adresse?: string;
     email?: string;
@@ -44,6 +45,8 @@ export interface Entreprise {
     logo_url?: string;
     iban?: string;
     bic?: string;
+    assurance_nom?: string;
+    assurance_contact?: string;
     password?: string; // For auth
 }
 
@@ -55,6 +58,12 @@ export interface Devis {
     theme: string;
     accent_hex: string;
     objet?: string;
+
+    // Legal & Dates
+    date_debut?: string;
+    duree_travaux?: string;
+    conditions_reglement?: string;
+
     client?: Client;
     lignes: Ligne[];
     totaux: Totaux;
