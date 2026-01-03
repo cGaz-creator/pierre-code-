@@ -11,6 +11,16 @@ const nextConfig = {
         // your project has ESLint errors.
         ignoreDuringBuilds: true,
     },
+    async rewrites() {
+        const isProd = process.env.NODE_ENV === 'production';
+        const apiBase = isProd ? 'https://devis-ai-api.onrender.com' : 'http://127.0.0.1:8000';
+        return [
+            {
+                source: '/api/:path*',
+                destination: `${apiBase}/:path*`, // Proxy to Backend
+            },
+        ];
+    },
 };
 
 module.exports = nextConfig;

@@ -1,6 +1,6 @@
 import { ChatResponse, Client, Entreprise, Devis, PriceItem } from './types';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://devis-ai-api.onrender.com' : 'http://127.0.0.1:8000');
+const API_BASE = '/api';
 export const getBaseUrl = () => API_BASE;
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
