@@ -14,8 +14,8 @@ app = FastAPI(title="IA Devis API (Refactored)") # Reload trigger
 # CORS Configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https?://.*",
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
