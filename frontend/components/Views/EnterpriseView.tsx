@@ -36,10 +36,17 @@ export function EnterpriseView({ initialData, onNext }: EnterpriseViewProps) {
         try {
             if (mode === 'REGISTER') {
                 const newErrors: Record<string, string> = {};
-                if (!formData.nom.trim()) newErrors.nom = "Le nom de l'entreprise est requis";
-                if (!formData.password) newErrors.password = "Le mot de passe est requis";
-                if (formData.password && formData.password.length < 6) newErrors.password = "Minimum 6 caractères";
-                if (!formData.email) newErrors.email = "L'email est requis";
+                if (!formData.nom.trim()) newErrors.nom = "Le nom est requis";
+                if (!formData.siret) newErrors.siret = "SIRET requis";
+                if (!formData.adresse) newErrors.adresse = "Adresse requise";
+                if (!formData.email) newErrors.email = "Email requis";
+                if (!formData.forme) newErrors.forme = "Forme juridique requise";
+
+                const pwdRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*])[a-zA-Z0-9!@#$%^&*]{8,}$/;
+                if (!formData.password) newErrors.password = "Mot de passe requis";
+                else if (!pwdRegex.test(formData.password)) {
+                    newErrors.password = "Min 8 car, 1 chiffre, 1 caractère spécial (!@#$%^&*)";
+                }
 
                 if (Object.keys(newErrors).length > 0) {
                     setErrors(newErrors);
@@ -166,6 +173,10 @@ export function EnterpriseView({ initialData, onNext }: EnterpriseViewProps) {
                                     exit={{ opacity: 0, x: -20 }}
                                     className="space-y-4"
                                 >
+                                    <div className="text-right mb-2">
+                                        <span className="text-xs text-zinc-400 italic">* Champs obligatoires</span>
+                                    </div>
+
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="space-y-1">
                                             <label className="text-xs font-semibold text-zinc-500">Entreprise <span className="text-red-400">*</span></label>
@@ -197,34 +208,44 @@ export function EnterpriseView({ initialData, onNext }: EnterpriseViewProps) {
                                                         if (errors.password) setErrors({ ...errors, password: '' });
                                                     }}
                                                     className={`w-full pl-10 pr-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.password ? 'border-red-500' : 'border-zinc-200 dark:border-zinc-700'}`}
-                                                    placeholder="Votre mot de passe"
+                                                    placeholder="Min 8 car. (1 chiffre, 1 spécial)"
                                                 />
                                             </div>
                                             {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password}</p>}
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-xs font-semibold text-zinc-500">SIRET</label>
+                                            <label className="text-xs font-semibold text-zinc-500">SIRET <span className="text-red-400">*</span></label>
                                             <div className="relative">
-                                                <FileDigit className="absolute left-3 top-3 w-4 h-4 text-zinc-400" />
+                                                <FileDigit className={`absolute left-3 top-3 w-4 h-4 ${errors.siret ? 'text-red-400' : 'text-zinc-400'}`} />
                                                 <input
                                                     value={formData.siret}
-                                                    onChange={e => setFormData({ ...formData, siret: e.target.value })}
-                                                    className="w-full pl-10 pr-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                                    onChange={e => {
+                                                        setFormData({ ...formData, siret: e.target.value });
+                                                        if (errors.siret) setErrors({ ...errors, siret: '' });
+                                                    }}
+                                                    className={`w-full pl-10 pr-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.siret ? 'border-red-500' : 'border-zinc-200 dark:border-zinc-700'}`}
                                                     placeholder="123 456 789 00012"
                                                 />
                                             </div>
+                                            {errors.siret && <p className="text-xs text-red-500 mt-1">{errors.siret}</p>}
                                         </div>
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         <div className="space-y-1">
-                                            <label className="text-xs font-semibold text-zinc-500">Forme</label>
-                                            <input
-                                                value={formData.forme || ''}
-                                                onChange={e => setFormData({ ...formData, forme: e.target.value })}
-                                                className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                                placeholder="SAS, EI..."
-                                            />
+                                            <label className="text-xs font-semibold text-zinc-500">Forme <span className="text-red-400">*</span></label>
+                                            <div className="relative">
+                                                <input
+                                                    value={formData.forme || ''}
+                                                    onChange={e => {
+                                                        setFormData({ ...formData, forme: e.target.value });
+                                                        if (errors.forme) setErrors({ ...errors, forme: '' });
+                                                    }}
+                                                    className={`w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.forme ? 'border-red-500' : 'border-zinc-200 dark:border-zinc-700'}`}
+                                                    placeholder="SAS, EI..."
+                                                />
+                                                {errors.forme && <p className="text-xs text-red-500 absolute -bottom-4 right-0">{errors.forme}</p>}
+                                            </div>
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-xs font-semibold text-zinc-500">RCS / RM</label>
@@ -247,7 +268,7 @@ export function EnterpriseView({ initialData, onNext }: EnterpriseViewProps) {
                                     </div>
 
                                     <div className="space-y-1">
-                                        <label className="text-xs font-semibold text-zinc-500">Email</label>
+                                        <label className="text-xs font-semibold text-zinc-500">Email <span className="text-red-400">*</span></label>
                                         <div className="relative">
                                             <Mail className={`absolute left-3 top-3 w-4 h-4 ${errors.email ? 'text-red-400' : 'text-zinc-400'}`} />
                                             <input
@@ -279,16 +300,20 @@ export function EnterpriseView({ initialData, onNext }: EnterpriseViewProps) {
                                     </div>
 
                                     <div className="space-y-1">
-                                        <label className="text-xs font-semibold text-zinc-500">Adresse</label>
+                                        <label className="text-xs font-semibold text-zinc-500">Adresse <span className="text-red-400">*</span></label>
                                         <div className="relative">
-                                            <MapPin className="absolute left-3 top-3 w-4 h-4 text-zinc-400" />
+                                            <MapPin className={`absolute left-3 top-3 w-4 h-4 ${errors.adresse ? 'text-red-400' : 'text-zinc-400'}`} />
                                             <input
                                                 value={formData.adresse}
-                                                onChange={e => setFormData({ ...formData, adresse: e.target.value })}
-                                                className="w-full pl-10 pr-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                                onChange={e => {
+                                                    setFormData({ ...formData, adresse: e.target.value });
+                                                    if (errors.adresse) setErrors({ ...errors, adresse: '' });
+                                                }}
+                                                className={`w-full pl-10 pr-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.adresse ? 'border-red-500' : 'border-zinc-200 dark:border-zinc-700'}`}
                                                 placeholder="123 Rue de la Paix, 75000 Paris"
                                             />
                                         </div>
+                                        {errors.adresse && <p className="text-xs text-red-500 mt-1">{errors.adresse}</p>}
                                     </div>
                                 </motion.div>
                             )}
