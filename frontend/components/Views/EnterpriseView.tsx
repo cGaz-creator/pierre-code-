@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from '../UI/Button';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Building2, ArrowRight, Mail, Phone, MapPin, FileDigit, LogIn, UserPlus, Lock } from 'lucide-react';
+import { Building2, ArrowRight, Mail, Phone, MapPin, FileDigit, LogIn, UserPlus, Lock, ChevronDown } from 'lucide-react';
 import { Entreprise } from '../../lib/types';
 import { api } from '../../lib/api';
 import toast from 'react-hot-toast';
@@ -244,7 +244,7 @@ export function EnterpriseView({ initialData, onNext }: EnterpriseViewProps) {
                                                         setFormData({ ...formData, forme: e.target.value });
                                                         if (errors.forme) setErrors({ ...errors, forme: '' });
                                                     }}
-                                                    className={`w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.forme ? 'border-red-500' : 'border-zinc-200 dark:border-zinc-700'}`}
+                                                    className={`w-full pl-4 pr-10 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none appearance-none ${errors.forme ? 'border-red-500' : 'border-zinc-200 dark:border-zinc-700'}`}
                                                 >
                                                     <option value="">Sélectionner...</option>
                                                     <option value="Micro-Entrepreneur">Micro-Entrepreneur</option>
@@ -258,6 +258,7 @@ export function EnterpriseView({ initialData, onNext }: EnterpriseViewProps) {
                                                     <option value="SCI">SCI</option>
                                                     <option value="Association">Association</option>
                                                 </select>
+                                                <ChevronDown className="absolute right-3 top-3 w-4 h-4 text-zinc-400 pointer-events-none" />
                                                 {errors.forme && <p className="text-xs text-red-500 absolute -bottom-4 right-0">{errors.forme}</p>}
                                             </div>
                                         </div>
