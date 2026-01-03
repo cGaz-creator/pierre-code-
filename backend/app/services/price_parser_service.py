@@ -35,11 +35,12 @@ def parse_price_list_file(file_path: str, file_ext: str) -> list[dict]:
     Ta mission : Transformer ce fichier (CSV/Excel/Texte) en une liste structurée d'articles pour un logiciel de devis.
 
     Règles d'extraction :
-    1. EXTENSION : Trouve tous les articles possibles. Ne t'arrête pas au premier.
-    2. LABEL (Désignation) : Traduis/Corrige si nécessaire pour avoir un nom clair en français.
-    3. PRIX (HT) : Extrait le prix numérique (convertis si besoin). Si manquant, mets 0.
-    4. UNITE : Déduis l'unité (u, m2, ml, h, ens, fft). Par défaut "u".
-    5. CATEGORIE : Déduis une catégorie logique (ex: Plomberie, Electricité, Main d'oeuvre) selon le libellé.
+    1. STRICT : Si le fichier n'a AUCUN rapport avec le bâtiment/prix/catalogue (ex: recette de cuisine, roman, facture EDF), retourne une liste vide [].
+    2. EXTENSION : Trouve tous les articles possibles. Ne t'arrête pas au premier.
+    3. LABEL (Désignation) : Traduis/Corrige si nécessaire pour avoir un nom clair en français.
+    4. PRIX (HT) : Extrait le prix numérique (convertis si besoin). Si manquant, mets 0.
+    5. UNITE : Déduis l'unité (u, m2, ml, h, ens, fft). Par défaut "u".
+    6. CATEGORIE : Déduis une catégorie logique (ex: Plomberie, Electricité, Main d'oeuvre) selon le libellé.
 
     Format de sortie JSON Strict :
     {
