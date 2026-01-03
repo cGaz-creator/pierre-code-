@@ -150,4 +150,10 @@ export const api = {
         request<{ ok: boolean }>(`/pricelist/${id}`, {
             method: 'DELETE'
         }),
+
+    deleteCatalogItems: (ids: number[]) =>
+        request<{ count: number }>(`/pricelist/bulk-delete`, {
+            method: 'POST',
+            body: JSON.stringify(ids)
+        }),
 };

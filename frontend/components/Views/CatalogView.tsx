@@ -24,6 +24,10 @@ export function CatalogView({ entrepriseNom, entrepriseId, onBack }: CatalogView
         label: '', price_ht: 0, unit: 'u', category: 'Main d\'oeuvre', tva: 20
     });
 
+    // Bulk & Delete State
+    const [selectedIds, setIds] = useState<Set<number>>(new Set());
+    const [itemToDelete, setItemToDelete] = useState<number | number[] | null>(null);
+
     useEffect(() => {
         loadCatalog();
     }, [entrepriseNom]);
@@ -91,14 +95,29 @@ export function CatalogView({ entrepriseNom, entrepriseId, onBack }: CatalogView
         }
     };
 
-    const handleDelete = async (id: number) => {
-        if (!confirm("Supprimer cet article ?")) return;
+    const handleDelete = (id: number) => {
+        setItemToDelete(id);
+    };
+
+    const handleBulkDelete = () => {
+        setItemToDelete(Array.from(selectedIds));
+    };
+
+    const confirmDelete = async () => {
+        if (!itemToDelete) return;
+        const toastId = toast.loading("Suppression...");
         try {
-            await api.deleteCatalogItem(id);
-            toast.success("Supprimé");
+            if (Array.isArray(itemToDelete)) {
+                await api.deleteCatalogItems(itemToDelete);
+                setIds(new Set());
+            } else {
+                await api.deleteCatalogItem(itemToDelete);
+            }
+            toast.success("Supprimé", { id: toastId });
+            setItemToDelete(null);
             loadCatalog();
         } catch (err) {
-            toast.error("Erreur suppression");
+            toast.error("Erreur suppression", { id: toastId });
         }
     };
 
@@ -179,10 +198,38 @@ export function CatalogView({ entrepriseNom, entrepriseId, onBack }: CatalogView
                 </div>
             </div>
 
+            {/* Toolbar for Selection */}
+            {selectedIds.size > 0 && (
+                <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 p-3 rounded-lg flex items-center justify-between"
+                >
+                    <div className="flex items-center gap-2 text-red-700 dark:text-red-300">
+                        <span className="font-semibold">{selectedIds.size}</span> articles sélectionnés
+                    </div>
+                    <Button variant="ghost" className="text-red-600 hover:bg-red-100" onClick={handleBulkDelete}>
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Tout supprimer
+                    </Button>
+                </motion.div>
+            )}
+
             <div className="flex-1 overflow-auto bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
                 <table className="w-full text-left text-sm">
                     <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-medium sticky top-0">
                         <tr>
+                            <th className="px-6 py-3 w-12">
+                                <input
+                                    type="checkbox"
+                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    checked={selectedIds.size === filteredItems.length && filteredItems.length > 0}
+                                    onChange={(e) => {
+                                        if (e.target.checked) setIds(new Set(filteredItems.map(i => i.id!)));
+                                        else setIds(new Set());
+                                    }}
+                                />
+                            </th>
                             <th className="px-6 py-3">Désignation</th>
                             <th className="px-6 py-3">Catégorie</th>
                             <th className="px-6 py-3 text-right">Prix HT</th>
@@ -192,7 +239,20 @@ export function CatalogView({ entrepriseNom, entrepriseId, onBack }: CatalogView
                     </thead>
                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
                         {filteredItems.map(item => (
-                            <tr key={item.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors group">
+                            <tr key={item.id} className={`hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors group ${selectedIds.has(item.id!) ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
+                                <td className="px-6 py-3">
+                                    <input
+                                        type="checkbox"
+                                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        checked={selectedIds.has(item.id!)}
+                                        onChange={(e) => {
+                                            const newSet = new Set(selectedIds);
+                                            if (e.target.checked) newSet.add(item.id!);
+                                            else newSet.delete(item.id!);
+                                            setIds(newSet);
+                                        }}
+                                    />
+                                </td>
                                 <td className="px-6 py-3 font-medium text-zinc-900 dark:text-zinc-100">{item.label}</td>
                                 <td className="px-6 py-3">
                                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
@@ -217,7 +277,7 @@ export function CatalogView({ entrepriseNom, entrepriseId, onBack }: CatalogView
                         ))}
                         {filteredItems.length === 0 && (
                             <tr>
-                                <td colSpan={5} className="text-center py-12 text-zinc-400">
+                                <td colSpan={6} className="text-center py-12 text-zinc-400">
                                     Aucun article trouvé. Ajoutez-en un !
                                 </td>
                             </tr>
@@ -225,6 +285,34 @@ export function CatalogView({ entrepriseNom, entrepriseId, onBack }: CatalogView
                     </tbody>
                 </table>
             </div>
+
+            {/* Confirm Delete Modal */}
+            <AnimatePresence>
+                {itemToDelete !== null && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="bg-white dark:bg-zinc-900 rounded-xl shadow-xl w-full max-w-sm overflow-hidden p-6"
+                        >
+                            <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-2">Confirmation</h3>
+                            <p className="text-zinc-600 dark:text-zinc-400 text-sm mb-6">
+                                {typeof itemToDelete === 'number'
+                                    ? "Voulez-vous vraiment supprimer cet article ?"
+                                    : `Voulez-vous vraiment supprimer ces ${itemToDelete.length} articles ?`}
+                                <br />Cette action est irréversible.
+                            </p>
+                            <div className="flex justify-end gap-2">
+                                <Button variant="ghost" onClick={() => setItemToDelete(null)}>Annuler</Button>
+                                <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={confirmDelete}>
+                                    Supprimer
+                                </Button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
 
             {/* Modal */}
             <AnimatePresence>
