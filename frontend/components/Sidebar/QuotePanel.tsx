@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Devis } from '../../lib/types';
 import { Button } from '../UI/Button';
 import { api } from '../../lib/api';
-import { Pencil, Check, X } from 'lucide-react';
+import { Pencil, Check, X, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { SendEmailModal } from '../Modals/SendEmailModal';
 
 interface QuotePanelProps {
     devis: Devis | null;
@@ -15,6 +16,7 @@ export function QuotePanel({ devis, includeDetailedDescription, onToggleDescript
     const [isEditing, setIsEditing] = useState(false);
     const [name, setName] = useState('');
     const [isSavingName, setIsSavingName] = useState(false);
+    const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
 
     useEffect(() => {
         if (devis) {
@@ -162,14 +164,32 @@ export function QuotePanel({ devis, includeDetailedDescription, onToggleDescript
                     </div>
                 </div>
 
-                <Button
-                    className="w-full py-3 text-base shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition-all"
-                    onClick={handleDownload}
-                    disabled={devis.lignes.length === 0}
-                >
-                    Télécharger le PDF
-                </Button>
+                <div className="flex gap-2">
+                    <Button
+                        variant="ghost"
+                        className="flex-1 py-3 text-base border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                        onClick={() => setIsEmailModalOpen(true)}
+                        disabled={devis.lignes.length === 0}
+                    >
+                        <Mail className="w-4 h-4 mr-2" /> Email
+                    </Button>
+                    <Button
+                        className="flex-[2] py-3 text-base shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition-all"
+                        onClick={handleDownload}
+                        disabled={devis.lignes.length === 0}
+                    >
+                        Télécharger le PDF
+                    </Button>
+                </div>
             </div>
+
+            <SendEmailModal
+                isOpen={isEmailModalOpen}
+                onClose={() => setIsEmailModalOpen(false)}
+                devisId={devis.id}
+                clientEmail={devis.client?.email}
+                devisObjet={devis.objet}
+            />
         </div>
     );
 }

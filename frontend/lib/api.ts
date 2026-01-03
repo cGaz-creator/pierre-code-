@@ -59,6 +59,12 @@ export const api = {
             body: JSON.stringify(data)
         }),
 
+    sendDevisEmail: (devisId: string, data: { to_email: string; subject: string; message: string }) =>
+        request<{ ok: boolean }>(`/devis/${devisId}/send`, {
+            method: 'POST',
+            body: JSON.stringify(data)
+        }),
+
     // Upload
     uploadFile: async (file: File) => {
         const formData = new FormData();

@@ -11,3 +11,4 @@ python-multipart
 passlib
 bcrypt==3.2.2
 psycopg2-binary
+fastapi-mail
