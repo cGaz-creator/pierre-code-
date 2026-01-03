@@ -13,8 +13,16 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     try {
         const res = await fetch(url, { ...options, headers });
         if (!res.ok) {
-            const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
-            throw new Error(err.detail || `Error ${res.status}`);
+            let errorDetail = `Error ${res.status}`;
+            try {
+                const errorJson = await res.json();
+                errorDetail = errorJson.detail || errorJson.message || errorDetail;
+            } catch (e) {
+                // If JSON parse fails, try text
+                const errorText = await res.text().catch(() => '');
+                errorDetail = `${errorDetail} (${errorText.slice(0, 50)})`;
+            }
+            throw new Error(errorDetail);
         }
         return res.json();
     } catch (error) {
