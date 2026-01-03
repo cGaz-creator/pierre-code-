@@ -79,9 +79,11 @@ export interface ChatResponse {
 }
 
 export interface PriceItem {
-    id: string;
+    id?: number;
     label: string;
     price_ht: number;
+    unit: string;
+    category: string;
     tva: number;
-    category?: string;
+    entreprise_id?: number;
 }

@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .db.database import create_db_and_tables
 from fastapi.staticfiles import StaticFiles
-from .routers import chat, devis, entreprise, clients, upload, feedback
+from .routers import chat, devis, entreprise, clients, upload, feedback, pricelist
 
 # Initialization of the app
 app = FastAPI(title="IA Devis API (Refactored)") # Reload trigger
@@ -43,3 +43,4 @@ app.include_router(entreprise.router)
 app.include_router(clients.router)
 app.include_router(upload.router)
 app.include_router(feedback.router)
+app.include_router(pricelist.router)

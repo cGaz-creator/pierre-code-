@@ -1,4 +1,4 @@
-import { ChatResponse, Client, Entreprise, Devis } from './types';
+import { ChatResponse, Client, Entreprise, Devis, PriceItem } from './types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 
@@ -107,5 +107,30 @@ export const api = {
         request<Entreprise>(`/entreprise/${id}`, {
             method: 'PATCH',
             body: JSON.stringify(data)
+        }),
+
+    // Catalog (PriceList)
+    listCatalog: (entrepriseNom: string, query?: string) => {
+        const params = new URLSearchParams();
+        params.append('entreprise_nom', entrepriseNom);
+        if (query) params.append('q', query);
+        return request<PriceItem[]>(`/pricelist?${params.toString()}`);
+    },
+
+    createCatalogItem: (item: PriceItem) =>
+        request<PriceItem>('/pricelist', {
+            method: 'POST',
+            body: JSON.stringify(item)
+        }),
+
+    updateCatalogItem: (id: number, item: Partial<PriceItem>) =>
+        request<PriceItem>(`/pricelist/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(item)
+        }),
+
+    deleteCatalogItem: (id: number) =>
+        request<{ ok: boolean }>(`/pricelist/${id}`, {
+            method: 'DELETE'
         }),
 };

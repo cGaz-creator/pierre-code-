@@ -22,8 +22,9 @@ import { EnterpriseView } from '../components/Views/EnterpriseView';
 import { ClientView } from '../components/Views/ClientView';
 import { QuoteHistoryPanel } from '../components/Sidebar/QuoteHistoryPanel';
 import { SettingsView } from '../components/Views/SettingsView';
+import { CatalogView } from '../components/Views/CatalogView';
 
-type ViewState = 'HOME' | 'ENTERPRISE' | 'CLIENT' | 'CHAT' | 'SETTINGS';
+type ViewState = 'HOME' | 'ENTERPRISE' | 'CLIENT' | 'CHAT' | 'SETTINGS' | 'CATALOG';
 
 export default function HomePage() {
     const {
@@ -219,8 +220,8 @@ export default function HomePage() {
                         Fonctionnalités
                     </button>
                     <button
-                        onClick={() => setShowPriceModal(true)}
-                        className="text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition-colors"
+                        onClick={() => setView('CATALOG')}
+                        className="text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition-colors "
                     >
                         Mon Catalogue
                     </button>
@@ -293,7 +294,7 @@ export default function HomePage() {
                         </div>
                     )}
                     <button
-                        onClick={() => { setShowPriceModal(true); setIsMobileMenuOpen(false); }}
+                        onClick={() => { setView('CATALOG'); setIsMobileMenuOpen(false); }}
                         className="text-left px-2 py-2 text-lg font-medium text-zinc-700 dark:text-zinc-200 border-b border-zinc-100 dark:border-zinc-800"
                     >
                         📚 Mon Catalogue
