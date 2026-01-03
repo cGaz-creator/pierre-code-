@@ -23,6 +23,16 @@ app.add_middleware(
 # Mount static files
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
+# Global Exception Handler (For Debugging Prod)
+from fastapi import Request
+from fastapi.responses import JSONResponse
+@app.exception_handler(Exception)
+async def debug_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal Server Error: {str(exc)}", "type": type(exc).__name__},
+    )
+
 @app.on_event("startup")
 def on_startup():
     create_db_and_tables()
