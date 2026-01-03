@@ -11,6 +11,21 @@ interface EnterpriseViewProps {
     onNext: (data: Entreprise) => void;
 }
 
+
+function ConnectionStatus() {
+    const [status, setStatus] = useState<'CHECKING' | 'OK' | 'ERROR'>('CHECKING');
+
+    React.useEffect(() => {
+        api.health()
+            .then(() => setStatus('OK'))
+            .catch(() => setStatus('ERROR'));
+    }, []);
+
+    if (status === 'CHECKING') return <span>Connexion...</span>;
+    if (status === 'OK') return <span className="text-green-500">Connecté ✅</span>;
+    return <span className="text-red-500 font-bold">Déconnecté ❌ (Erreur Réseau)</span>;
+}
+
 export function EnterpriseView({ initialData, onNext }: EnterpriseViewProps) {
     const [mode, setMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
     const [isLoading, setIsLoading] = useState(false);
@@ -346,6 +361,13 @@ export function EnterpriseView({ initialData, onNext }: EnterpriseViewProps) {
                         </div>
                     </form>
                 </div>
+            </div>
+
+            {/* Debug Info for Production Issues */}
+            <div className="absolute bottom-4 left-0 right-0 text-center z-50">
+                <p className="inline-block bg-yellow-500 text-black px-4 py-2 rounded-full text-xs font-bold shadow-lg">
+                    DEBUG: {api.getBaseUrl()} | Status: <ConnectionStatus />
+                </p>
             </div>
         </motion.div>
     );
