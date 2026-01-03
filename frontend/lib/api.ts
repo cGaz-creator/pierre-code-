@@ -102,4 +102,10 @@ export const api = {
             method: 'POST',
             body: JSON.stringify(data)
         }),
+
+    updateEntreprise: (id: number, data: Partial<Entreprise>) =>
+        request<Entreprise>(`/entreprise/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(data)
+        }),
 };

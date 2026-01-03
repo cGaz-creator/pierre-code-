@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 from passlib.context import CryptContext
 from ..db.database import get_session
-from ..models.entreprise import Entreprise, EntrepriseBase, EntrepriseCreate, EntrepriseLogin
+from ..models.entreprise import Entreprise, EntrepriseBase, EntrepriseCreate, EntrepriseLogin, EntrepriseUpdate
 
 router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -30,6 +30,21 @@ def register_entreprise(data: EntrepriseCreate, session: Session = Depends(get_s
     ent_data = data.dict(exclude={"password"})
     ent = Entreprise(**ent_data, password_hash=hashed_password)
     
+    session.add(ent)
+    session.commit()
+    session.refresh(ent)
+    return ent
+
+@router.patch("/entreprise/{entreprise_id}")
+def update_entreprise(entreprise_id: int, data: EntrepriseUpdate, session: Session = Depends(get_session)):
+    ent = session.get(Entreprise, entreprise_id)
+    if not ent:
+        raise HTTPException(status_code=404, detail="Entreprise non trouvée")
+    
+    hero_data = data.dict(exclude_unset=True)
+    for key, value in hero_data.items():
+        setattr(ent, key, value)
+        
     session.add(ent)
     session.commit()
     session.refresh(ent)

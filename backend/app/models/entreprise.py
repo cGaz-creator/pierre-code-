@@ -21,6 +21,21 @@ class EntrepriseBase(SQLModel):
 class EntrepriseCreate(EntrepriseBase):
     password: str
 
+class EntrepriseUpdate(SQLModel):
+    nom: Optional[str] = None
+    forme: Optional[str] = None
+    siret: Optional[str] = None
+    rm_rcs: Optional[str] = None
+    tva_intracom: Optional[str] = None
+    adresse: Optional[str] = None
+    email: Optional[str] = None
+    tel: Optional[str] = None
+    logo_url: Optional[str] = None
+    iban: Optional[str] = None
+    bic: Optional[str] = None
+    assurance_nom: Optional[str] = None
+    assurance_contact: Optional[str] = None
+
 class EntrepriseLogin(SQLModel):
     nom: str
     password: str

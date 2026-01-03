@@ -21,8 +21,9 @@ import { HomeView } from '../components/Views/HomeView';
 import { EnterpriseView } from '../components/Views/EnterpriseView';
 import { ClientView } from '../components/Views/ClientView';
 import { QuoteHistoryPanel } from '../components/Sidebar/QuoteHistoryPanel';
+import { SettingsView } from '../components/Views/SettingsView';
 
-type ViewState = 'HOME' | 'ENTERPRISE' | 'CLIENT' | 'CHAT';
+type ViewState = 'HOME' | 'ENTERPRISE' | 'CLIENT' | 'CHAT' | 'SETTINGS';
 
 export default function HomePage() {
     const {
@@ -94,6 +95,17 @@ export default function HomePage() {
                 return <AnimateTransition key="home"><HomeView onStart={handleStart} /></AnimateTransition>;
             case 'ENTERPRISE':
                 return <AnimateTransition key="ent"><EnterpriseView initialData={storedEnt} onNext={handleEnterpriseSubmit} /></AnimateTransition>;
+            case 'SETTINGS':
+                return (
+                    <AnimateTransition key="settings">
+                        <SettingsView
+                            currentEntreprise={storedEnt}
+                            onUpdate={setStoredEnt}
+                            onBack={() => setView('HOME')} // Or previous view
+                            onLogout={handleLogout}
+                        />
+                    </AnimateTransition>
+                );
             case 'CLIENT':
                 return <AnimateTransition key="client"><ClientView onNext={handleClientSubmit} onBack={() => setView('HOME')} entrepriseNom={storedEnt.nom} /></AnimateTransition>;
             case 'CHAT':
@@ -224,9 +236,12 @@ export default function HomePage() {
                     {/* Enterprise Menu -> Logout (Desktop) */}
                     {storedEnt.nom && (
                         <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800/50 rounded-full border border-zinc-200 dark:border-zinc-700">
-                            <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-300 max-w-[100px] truncate">
+                            <button
+                                onClick={() => setView('SETTINGS')}
+                                className="text-xs font-semibold text-zinc-600 dark:text-zinc-300 max-w-[100px] truncate hover:underline hover:text-blue-600 transition"
+                            >
                                 {storedEnt.nom}
-                            </span>
+                            </button>
                             <div className="w-px h-3 bg-zinc-300 dark:bg-zinc-600 mx-1"></div>
                             <button
                                 onClick={handleLogout}
@@ -266,7 +281,12 @@ export default function HomePage() {
                 <div className="md:hidden absolute top-16 left-0 right-0 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 p-4 shadow-xl z-40 flex flex-col gap-4 animate-in slide-in-from-top-2">
                     {storedEnt.nom && (
                         <div className="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-800 rounded-lg">
-                            <span className="font-semibold text-zinc-900 dark:text-white">{storedEnt.nom}</span>
+                            <button
+                                onClick={() => { setView('SETTINGS'); setIsMobileMenuOpen(false); }}
+                                className="font-semibold text-zinc-900 dark:text-white"
+                            >
+                                {storedEnt.nom}
+                            </button>
                             <button onClick={handleLogout} className="text-red-500 text-sm font-medium flex items-center gap-2">
                                 <LogOut size={16} /> Déconnexion
                             </button>
