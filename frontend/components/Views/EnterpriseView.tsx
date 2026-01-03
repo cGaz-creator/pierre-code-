@@ -38,6 +38,9 @@ export function EnterpriseView({ initialData, onNext }: EnterpriseViewProps) {
                 const newErrors: Record<string, string> = {};
                 if (!formData.nom.trim()) newErrors.nom = "Le nom est requis";
                 if (!formData.siret) newErrors.siret = "SIRET requis";
+                else if (!/^\d{14}$/.test(formData.siret.replace(/\s/g, ''))) {
+                    newErrors.siret = "Le SIRET doit contenir exactement 14 chiffres";
+                }
                 if (!formData.adresse) newErrors.adresse = "Adresse requise";
                 if (!formData.email) newErrors.email = "Email requis";
                 if (!formData.forme) newErrors.forme = "Forme juridique requise";
@@ -235,15 +238,26 @@ export function EnterpriseView({ initialData, onNext }: EnterpriseViewProps) {
                                         <div className="space-y-1">
                                             <label className="text-xs font-semibold text-zinc-500">Forme <span className="text-red-400">*</span></label>
                                             <div className="relative">
-                                                <input
+                                                <select
                                                     value={formData.forme || ''}
                                                     onChange={e => {
                                                         setFormData({ ...formData, forme: e.target.value });
                                                         if (errors.forme) setErrors({ ...errors, forme: '' });
                                                     }}
                                                     className={`w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.forme ? 'border-red-500' : 'border-zinc-200 dark:border-zinc-700'}`}
-                                                    placeholder="SAS, EI..."
-                                                />
+                                                >
+                                                    <option value="">Sélectionner...</option>
+                                                    <option value="Micro-Entrepreneur">Micro-Entrepreneur</option>
+                                                    <option value="EI">EI</option>
+                                                    <option value="EIRL">EIRL</option>
+                                                    <option value="SARL">SARL</option>
+                                                    <option value="EURL">EURL</option>
+                                                    <option value="SAS">SAS</option>
+                                                    <option value="SASU">SASU</option>
+                                                    <option value="SA">SA</option>
+                                                    <option value="SCI">SCI</option>
+                                                    <option value="Association">Association</option>
+                                                </select>
                                                 {errors.forme && <p className="text-xs text-red-500 absolute -bottom-4 right-0">{errors.forme}</p>}
                                             </div>
                                         </div>

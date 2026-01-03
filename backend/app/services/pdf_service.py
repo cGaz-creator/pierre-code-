@@ -131,7 +131,7 @@ def generate_pdf(d: Devis, e: Entreprise) -> bytes:
     y_right = h - 30*mm
     c.setFillColor(accent)
     c.setFont("Helvetica-Bold", 18)
-    c.drawRightString(190*mm, y_right, f"DEVIS N° {d.id}")
+    c.drawRightString(190*mm, y_right, f"DEVIS N° {d.readable_id}")
     y_right -= 8*mm
     
     c.setFillColor(colors.black); c.setFont("Helvetica", 10)
@@ -245,6 +245,8 @@ def generate_pdf(d: Devis, e: Entreprise) -> bytes:
         f"Conditions de règlement : {d.conditions_reglement or 'À réception'}.",
         "Assurance : " + (f"Garantie Décennale {e.assurance_nom} ({e.assurance_contact})" if e.assurance_nom else "Non spécifiée (Obligatoire pour le gros œuvre)"),
         "En cas de retard de paiement, application d'une indemnité forfaitaire de 40€.",
+        "Gestion des déchets : Sauf mention contraire, l'évacuation des gravats est à la charge du client.",
+        "Médiation : En cas de litige, le consommateur peut saisir le médiateur de la consommation compétent."
     ]
     for line in legal_text:
         c.drawString(20*mm, y, line)

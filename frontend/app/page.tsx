@@ -83,6 +83,7 @@ export default function HomePage() {
 
     const handleLogout = () => {
         setStoredEnt({ nom: '' });
+        setCurrentClient(null);
         setView('ENTERPRISE');
         resetSession();
         setIsMobileMenuOpen(false);

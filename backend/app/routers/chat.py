@@ -113,8 +113,23 @@ class StartIn(BaseModel):
 
 @router.post("/chat/start")
 def chat_start(inp: StartIn, session: Session = Depends(get_session)):
+    from sqlalchemy import func
+    
+    # Calculate next number for this enterprise
+    # Default to 1 if no quotes exist
+    next_num = 1
+    if inp.entreprise_nom:
+        statement = select(func.max(Devis.number)).where(Devis.entreprise_nom == inp.entreprise_nom)
+        max_num = session.exec(statement).first()
+        if max_num:
+            next_num = max_num + 1
+
     # Create new Devis
-    new_devis = Devis(theme=inp.theme, entreprise_nom=inp.entreprise_nom)
+    new_devis = Devis(
+        theme=inp.theme, 
+        entreprise_nom=inp.entreprise_nom,
+        number=next_num
+    )
     
     if inp.client_id:
         new_devis.client_id = inp.client_id

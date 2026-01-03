@@ -71,13 +71,15 @@ def get_devis_pdf(devis_id: str, session: Session = Depends(get_session)):
     pdf_bytes = generate_pdf(devis, entreprise)
     
     # Determine filename
-    filename = f"devis-{devis_id}.pdf"
+    
+    # Determine filename
+    filename = f"Devis-{devis.readable_id}.pdf"
     if devis.objet:
         # Basic sanitization
         safe_name = "".join([c if c.isalnum() or c in (' ', '-', '_') else '_' for c in devis.objet])
         safe_name = safe_name.strip().replace(' ', '_')
         if safe_name:
-            filename = f"{safe_name}.pdf"
+            filename = f"Devis-{devis.readable_id}-{safe_name}.pdf"
 
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
@@ -109,11 +111,12 @@ async def send_devis_email(devis_id: str, email_req: EmailRequest, session: Sess
     pdf_bytes = generate_pdf(devis, entreprise)
     
     # Determine filename
-    filename = f"devis-{devis_id}.pdf"
+    # Determine filename
+    filename = f"Devis-{devis.readable_id}.pdf"
     if devis.objet:
         safe_name = "".join([c if c.isalnum() or c in (' ', '-', '_') else '_' for c in devis.objet])
         safe_name = safe_name.strip().replace(' ', '_')
-        if safe_name: filename = f"{safe_name}.pdf"
+        if safe_name: filename = f"Devis-{devis.readable_id}-{safe_name}.pdf"
 
     # 2. Attachments
     # UploadFile-like structure for fastapi-mail? No, MessageSchema takes 'attachments' as files or UploadFile.

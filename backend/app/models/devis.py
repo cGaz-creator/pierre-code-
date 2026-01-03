@@ -55,10 +55,20 @@ class DevisBase(SQLModel):
 class Devis(DevisBase, table=True):
     id: str = Field(default_factory=lambda: f"DV-{dt_date.today().year}-{uuid.uuid4().hex[:6].upper()}", primary_key=True)
     
+    # Sequential Numbering
+    number: int = Field(default=0, index=True) # 0 means not yet assigned or old devis
+    
     client_id: Optional[str] = Field(default=None, foreign_key="client.id")
     client: Optional[Client] = Relationship()
     
     lignes: List[Ligne] = Relationship(back_populates="devis")
+
+    @property
+    def readable_id(self) -> str:
+        # If no number assigned (0), fallback to short UUID part of ID to avoid looking broken
+        if self.number > 0:
+            return f"DV-{self.date.year}-{self.number:03d}"
+        return self.id.split('-')[-1] # Fallback for old quotes
 
 class DevisUpdate(SQLModel):
     objet: Optional[str] = None

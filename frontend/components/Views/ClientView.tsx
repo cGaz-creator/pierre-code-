@@ -29,7 +29,7 @@ export function ClientView({ onNext, onBack, entrepriseNom }: ClientViewProps) {
 
     const [isSearching, setIsSearching] = useState(false);
 
-    // Initial load & Search
+    // Search Effect
     useEffect(() => {
         const load = async () => {
             if (!entrepriseNom) return;
@@ -39,13 +39,20 @@ export function ClientView({ onNext, onBack, entrepriseNom }: ClientViewProps) {
                 setClients(results);
             } catch (err) {
                 console.error(err);
+                if (search) toast.error("Erreur recherche");
             } finally {
                 setIsSearching(false);
             }
         };
 
-        const timer = setTimeout(load, 300);
-        return () => clearTimeout(timer);
+        if (search) {
+            // Debounce for typing
+            const timer = setTimeout(load, 300);
+            return () => clearTimeout(timer);
+        } else {
+            // Instant load for list (no debounce)
+            load();
+        }
     }, [search, entrepriseNom]);
 
     const handleStartCreate = () => {
