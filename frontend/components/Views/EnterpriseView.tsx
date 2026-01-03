@@ -13,17 +13,41 @@ interface EnterpriseViewProps {
 
 
 function ConnectionStatus() {
-    const [status, setStatus] = useState<'CHECKING' | 'OK' | 'ERROR'>('CHECKING');
+    const [status, setStatus] = useState<'CHECKING' | 'OK' | 'POST_ERROR' | 'GET_ERROR'>('CHECKING');
+    const [detail, setDetail] = useState('');
 
     React.useEffect(() => {
-        api.health()
-            .then(() => setStatus('OK'))
-            .catch(() => setStatus('ERROR'));
+        const check = async () => {
+            try {
+                // 1. Check GET
+                await api.health();
+
+                // 2. Check POST (Fake Login)
+                try {
+                    await api.loginEntreprise({ nom: 'TEST_CONN_CHECK', password: 'pwd' });
+                    setStatus('OK'); // Should fail with 404, which is technically "OK" for connection
+                } catch (err: any) {
+                    // If error contains "404" or "401", it means server RESPONDED. Success!
+                    if (err.message && (err.message.includes('404') || err.message.includes('401'))) {
+                        setStatus('OK');
+                    } else {
+                        // Network error / CORS
+                        setStatus('POST_ERROR');
+                        setDetail(err.message || 'Network Error');
+                    }
+                }
+            } catch (err: any) {
+                setStatus('GET_ERROR');
+                setDetail(err.message);
+            }
+        };
+        check();
     }, []);
 
     if (status === 'CHECKING') return <span>Connexion...</span>;
-    if (status === 'OK') return <span className="text-green-500">Connecté ✅</span>;
-    return <span className="text-red-500 font-bold">Déconnecté ❌ (Erreur Réseau)</span>;
+    if (status === 'OK') return <span className="text-green-500">Connecté (GET+POST) ✅</span>;
+    if (status === 'GET_ERROR') return <span className="text-red-500 font-bold">Panne GET ❌ ({detail})</span>;
+    return <span className="text-red-500 font-bold">Panne POST ❌ ({detail})</span>;
 }
 
 export function EnterpriseView({ initialData, onNext }: EnterpriseViewProps) {
