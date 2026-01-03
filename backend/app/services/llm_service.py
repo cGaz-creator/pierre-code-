@@ -6,35 +6,31 @@ from ..models.llm import LLMQuoteResponse
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-SYSTEM_PROMPT = """Tu es un expert en devis BTP.
-Ton objectif est de PRODUIRE UN DEVIS le plus rapidement possible.
+SYSTEM_PROMPT = """Tu es l'Expert IA de Devis.ai, le meilleur assistant pour les artisans du BTP.
+Ta mission : Créer des devis précis, professionnels et rentables en un temps record.
 
-Règles d'or :
-1. Tu reçois les lignes actuelles du devis ET un catalogue de prix (si disponible) dans le contexte.
-2. UTILISE PRIORITAIREMENT LE CATALOGUE DE PRIX pour fixer les prix unitaires. Si un article correspond, utilise son prix exact.
-3. Pour toute modification, renvoie la LISTE COMPLÈTE et À JOUR de toutes les lignes.
-4. Si l'utilisateur demande un devis, génère les lignes (action="update_quote").
-5. Si l'utilisateur précise une TVA, applique-la. Sinon 20%.
-6. Fais des estimations réalistes pour les prix manquants (hors catalogue).
+## TES CAPACITÉS
+1.  **Expertise Technique** : Tu connais parfaitement les termes du bâtiment (plomberie, électricité, gros œuvre, etc.).
+2.  **Gestion Commerciale** : Tu es poli, direct et tu vas droit au but.
 
-Format de réponse JSON strict :
-{
-  "action": "update_quote" | "ask_clarification" | "just_chat",
-  "lines": [
-    {
-      "label": "Désignation",
-      "quantity": 1.0,
-      "unit": "u",
-      "unit_price_ht": 50.0,
-      "tva_rate": 0.2,
-      "lot": "Lot",
-      "note": ""
-    }
-  ],
-  "detailed_description": "...",
-  "assistant_message": "...",
-  "questions_for_user": []
-}
+## RÈGLES D'OR DU CATALOGUE
+Tu as accès à une liste de prix fournie dans le contexte (variable `price_list_catalog`).
+1.  **PRIORITÉ ABSOLUE** : Si l'utilisateur demande "Pose de fenêtre" et que tu as "Pose fenêtre PVC - 300€" dans le catalogue, TU DOIS UTILISER CETTE LIGNE EXACTE (Label et Prix).
+2.  Si tu ne trouves pas d'article exact, alors ESTIME le prix au plus juste selon les standards du marché français 2024.
+
+## INSTRUCTIONS DE RAISONNEMENT (CHAIN OF THOUGHT)
+Avant de répondre, réfléchis étape par étape dans le champ `reasoning` :
+1.  Analyse la demande de l'utilisateur.
+2.  Cherche des correspondances dans le catalogue.
+3.  Vérifie s'il manque des infos (dimensions, matériaux).
+4.  Décide de l'action : Faut-il mettre à jour le devis ? Poser une question ? Juste discuter ?
+
+## FORMAT DE SORTIE
+Tu dois TOUJOURS répondre en suivant le schéma JSON strict fourni.
+- `reasoning` : Ton analyse interne.
+- `action` : "update_quote" pour modifier le devis, "ask_clarification" si tu as besoin d'infos vitales, "just_chat" pour le reste.
+- `lines` : La liste TOTALE des lignes du devis (pas juste les nouvelles, renvoie tout l'état désiré).
+- `assistant_message` : Ta réponse à l'utilisateur.
 """
 
 def propose_quote_update(
@@ -52,19 +48,20 @@ def propose_quote_update(
         "user_message": message_user,
         "include_detailed_description": include_detailed_description
     }
-
-    user_content = json.dumps(context_data, default=str)
     
+    # Prepare messages
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    
+    user_text = f"Voici le contexte JSON actuel : {json.dumps(context_data, default=str)}"
 
     if image_base64:
-        # Multimodal message
+        # Multimodal message with GPT-4o
         messages.append({
             "role": "user", 
             "content": [
                 {
                     "type": "text", 
-                    "text": f"Voici le contexte JSON (dont ma demande) : {user_content}. ANALYSE L'IMAGE FOURNIE pour extraire les travaux à faire."
+                    "text": user_text + "\n\nANALYSE L'IMAGE FOURNIE pour extraire les travaux à chiffrer. Sois précis sur les quantités."
                 },
                 {
                     "type": "image_url",
@@ -76,30 +73,30 @@ def propose_quote_update(
         })
     else:
         # Standard text message
-        messages.append({"role": "user", "content": user_content})
+        messages.append({"role": "user", "content": user_text})
     
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini", # or gpt-3.5-turbo
+        # Using Structural Output (Structured Outputs)
+        completion = client.beta.chat.completions.parse(
+            model="gpt-4o", # Upgrade to High Intelligence Model
             messages=messages,
-            response_format={"type": "json_object"},
-            temperature=0.2
+            response_format=LLMQuoteResponse,
+            temperature=0.2, # Low temperature for precision
         )
         
-        content = response.choices[0].message.content
-        print(f"LLM RAW RESPONSE: {content}") # Debug log
+        response = completion.choices[0].message.parsed
         
-        if not content:
-            raise ValueError("Empty response from LLM")
-            
-        data = json.loads(content)
-        return LLMQuoteResponse(**data)
+        # Log reasoning for debugging/audit
+        print(f"=== AI REASONING ===\n{response.reasoning}\n====================")
+        
+        return response
         
     except Exception as e:
-        print(f"LLM Error: {e}")
-        # Fallback response
+        print(f"LLM Structure Error: {e}")
+        # Robust Fallback
         return LLMQuoteResponse(
+            reasoning="Error fallback",
             action="just_chat",
-            assistant_message="Désolé, j'ai eu un problème technique. Peux-tu reformuler ?",
+            assistant_message="Désolé, j'ai rencontré une erreur interne lors de l'analyse (Structure invalide). Peux-tu reformuler ?",
             lines=[]
         )

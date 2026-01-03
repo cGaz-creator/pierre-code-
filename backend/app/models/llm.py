@@ -11,6 +11,7 @@ class LLMQuoteLine(BaseModel):
     note: Optional[str] = Field(None, description="Note ou description courte")
 
 class LLMQuoteResponse(BaseModel):
+    reasoning: str = Field(..., description="Raisonnement interne avant de produire la réponse (Chain of Thought)")
     action: str = Field(..., description="Action à effectuer: 'update_quote', 'ask_clarification', 'just_chat'")
     lines: List[LLMQuoteLine] = Field(default_factory=list, description="Liste des lignes à ajouter ou remplacer")
     detailed_description: Optional[str] = Field(None, description="Description détaillée du devis si demandée")
