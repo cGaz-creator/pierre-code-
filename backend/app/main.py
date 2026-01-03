@@ -27,6 +27,22 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 def on_startup():
     create_db_and_tables()
 
+# EMERGENCY DB RESET (For Schema Updates)
+@app.post("/admin/reset-db")
+def reset_database(key: str):
+    if key != "secure_reset_2024":
+        return {"error": "Invalid key"}
+    
+    from sqlmodel import SQLModel
+    from .db.database import engine
+    
+    # Drop all
+    SQLModel.metadata.drop_all(engine)
+    # Recreate all
+    SQLModel.metadata.create_all(engine)
+    
+    return {"status": "Database Reset and Updated"}
+
 @app.get("/health")
 def health_check():
     return {"status": "ok", "version": "2.0.0"}
