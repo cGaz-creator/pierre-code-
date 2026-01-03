@@ -31,23 +31,23 @@ def parse_price_list_file(file_path: str, file_ext: str) -> list[dict]:
 
     # Use LLM to extract structured data
     prompt = """
-    Tu es un assistant expert en BTP.
-    Analyse le texte suivant qui provient d'un catalogue de prix ou d'un devis type.
-    Extrait une liste d'articles avec :
-    - label (désignation)
-    - price_ht (prix unitaire hors taxe, float)
-    - unit (unité: u, m2, ml, h, ens...)
-    - category (catégorie si identifiable, sinon "Général")
+    Tu es un expert en BTP et data analysis.
+    Ta mission : Transformer ce fichier (CSV/Excel/Texte) en une liste structurée d'articles pour un logiciel de devis.
 
-    Format de réponse JSON strict :
+    Règles d'extraction :
+    1. EXTENSION : Trouve tous les articles possibles. Ne t'arrête pas au premier.
+    2. LABEL (Désignation) : Traduis/Corrige si nécessaire pour avoir un nom clair en français.
+    3. PRIX (HT) : Extrait le prix numérique (convertis si besoin). Si manquant, mets 0.
+    4. UNITE : Déduis l'unité (u, m2, ml, h, ens, fft). Par défaut "u".
+    5. CATEGORIE : Déduis une catégorie logique (ex: Plomberie, Electricité, Main d'oeuvre) selon le libellé.
+
+    Format de sortie JSON Strict :
     {
         "items": [
-            {"label": "Peinture blanche", "price_ht": 15.0, "unit": "m2", "category": "Peinture"},
+            {"label": "Désignation claire", "price_ht": 0.0, "unit": "u", "category": "Catégorie", "tva_rate": 0.2},
             ...
         ]
     }
-    
-    Texte à analyser :
     """
     
     try:
@@ -55,7 +55,7 @@ def parse_price_list_file(file_path: str, file_ext: str) -> list[dict]:
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": prompt},
-                {"role": "user", "content": text_content[:10000]} # Limit context window
+                {"role": "user", "content": text_content[:60000]} # Increased context for larger catalogs
             ],
             response_format={"type": "json_object"},
             temperature=0.1
