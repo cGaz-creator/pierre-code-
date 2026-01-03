@@ -8,10 +8,11 @@ import { Button } from '../UI/Button';
 
 interface CatalogViewProps {
     entrepriseNom: string;
+    entrepriseId?: number;
     onBack: () => void;
 }
 
-export function CatalogView({ entrepriseNom, onBack }: CatalogViewProps) {
+export function CatalogView({ entrepriseNom, entrepriseId, onBack }: CatalogViewProps) {
     const [items, setItems] = useState<PriceItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -74,11 +75,10 @@ export function CatalogView({ entrepriseNom, onBack }: CatalogViewProps) {
                 await api.updateCatalogItem(editingItem.id, payload);
                 toast.success("Article modifié");
             } else {
-                // We need enterprise ID here. 
-                // I will add a prop `currentEntrepriseId` to the component.
                 if (!payload.entreprise_id) {
-                    // Fail safe or error?
-                    // throw new Error("ID Entreprise manquant");
+                    // Try to use prop
+                    if (entrepriseId) payload.entreprise_id = entrepriseId;
+                    else throw new Error("ID Entreprise manquant");
                 }
                 await api.createCatalogItem(payload);
                 toast.success("Article créé");

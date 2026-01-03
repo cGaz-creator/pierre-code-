@@ -109,6 +109,16 @@ export default function HomePage() {
                 );
             case 'CLIENT':
                 return <AnimateTransition key="client"><ClientView onNext={handleClientSubmit} onBack={() => setView('HOME')} entrepriseNom={storedEnt.nom} /></AnimateTransition>;
+            case 'CATALOG':
+                return (
+                    <AnimateTransition key="catalog">
+                        <CatalogView
+                            entrepriseNom={storedEnt.nom}
+                            entrepriseId={storedEnt.id}
+                            onBack={() => setView('HOME')}
+                        />
+                    </AnimateTransition>
+                );
             case 'CHAT':
                 return (
                     <div className="flex flex-col h-full bg-zinc-50 dark:bg-zinc-950">

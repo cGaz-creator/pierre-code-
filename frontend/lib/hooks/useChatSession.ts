@@ -23,9 +23,12 @@ export function useChatSession() {
         setDevis(null);
     }, []);
 
+    const [currentEntNom, setCurrentEntNom] = useState<string>('');
+
     const startSession = useCallback(async (client?: Client, entrepriseNom?: string) => {
         resetSession();
         setIsLoading(true);
+        if (entrepriseNom) setCurrentEntNom(entrepriseNom);
         try {
             const res = await api.startChat(client?.id, client, undefined, entrepriseNom);
             setSessionId(res.session_id);
@@ -45,8 +48,15 @@ export function useChatSession() {
         setIsLoading(true);
 
         try {
-            const storedPriceList = localStorage.getItem('price_list');
-            const priceList = storedPriceList ? JSON.parse(storedPriceList) : [];
+            // Fetch real catalog from DB if enterprise is known
+            let priceList: any[] = [];
+            if (currentEntNom) {
+                try {
+                    priceList = await api.listCatalog(currentEntNom);
+                } catch (e) {
+                    console.warn("Failed to fetch catalog for chat context", e);
+                }
+            }
 
             const res = await api.chatTurn(sessionId, content, includeDetailedDescription, priceList, imageBase64);
             setDevis(res.devis);
@@ -57,7 +67,7 @@ export function useChatSession() {
         } finally {
             setIsLoading(false);
         }
-    }, [sessionId]);
+    }, [sessionId, currentEntNom]);
 
     return {
         sessionId,
