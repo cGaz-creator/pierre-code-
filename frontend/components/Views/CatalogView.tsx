@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PriceItem } from '../../lib/types';
 import { api } from '../../lib/api';
 import toast from 'react-hot-toast';
-import { Search, Plus, Trash2, Edit2, X, Tag, FileDigit, Euro } from 'lucide-react';
+import { Search, Plus, Trash2, Edit2, X, Tag, FileDigit, Euro, ChevronDown } from 'lucide-react';
 import { Button } from '../UI/Button';
 
 interface CatalogViewProps {
@@ -138,6 +138,29 @@ export function CatalogView({ entrepriseNom, entrepriseId, onBack }: CatalogView
                 </div>
                 <div className="flex gap-2">
                     <Button variant="ghost" onClick={onBack}>Retour</Button>
+                    <div className="relative">
+                        <input
+                            type="file"
+                            id="catalog-upload"
+                            className="hidden"
+                            accept=".csv,.xlsx,.xls"
+                            onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                const toastId = toast.loading('Import en cours...');
+                                try {
+                                    await api.uploadPriceList(file);
+                                    toast.success("Catalogue importé !", { id: toastId });
+                                    loadCatalog();
+                                } catch (err) {
+                                    toast.error("Erreur import", { id: toastId });
+                                }
+                            }}
+                        />
+                        <Button variant="outline" onClick={() => document.getElementById('catalog-upload')?.click()}>
+                            <FileDigit className="w-4 h-4 mr-2" /> Importer
+                        </Button>
+                    </div>
                     <Button onClick={() => openModal()}>
                         <Plus className="w-4 h-4 mr-2" /> Nouveau
                     </Button>
@@ -245,18 +268,21 @@ export function CatalogView({ entrepriseNom, entrepriseId, onBack }: CatalogView
                                     </div>
                                     <div>
                                         <label className="text-xs font-semibold text-zinc-500">Unité</label>
-                                        <select
-                                            className="w-full px-4 py-2 mt-1 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                                            value={formData.unit}
-                                            onChange={e => setFormData({ ...formData, unit: e.target.value })}
-                                        >
-                                            <option value="u">u (Unité)</option>
-                                            <option value="m2">m²</option>
-                                            <option value="ml">ml (Mètre linéaire)</option>
-                                            <option value="h">h (Heure)</option>
-                                            <option value="ens">ens (Ensemble)</option>
-                                            <option value="fft">fft (Forfait)</option>
-                                        </select>
+                                        <div className="relative">
+                                            <select
+                                                className="w-full px-4 py-2 mt-1 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+                                                value={formData.unit}
+                                                onChange={e => setFormData({ ...formData, unit: e.target.value })}
+                                            >
+                                                <option value="u">u (Unité)</option>
+                                                <option value="m2">m²</option>
+                                                <option value="ml">ml (Mètre linéaire)</option>
+                                                <option value="h">h (Heure)</option>
+                                                <option value="ens">ens (Ensemble)</option>
+                                                <option value="fft">fft (Forfait)</option>
+                                            </select>
+                                            <ChevronDown className="absolute right-3 top-[18px] w-4 h-4 text-zinc-400 pointer-events-none" />
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
@@ -271,16 +297,19 @@ export function CatalogView({ entrepriseNom, entrepriseId, onBack }: CatalogView
                                     </div>
                                     <div>
                                         <label className="text-xs font-semibold text-zinc-500">TVA (%)</label>
-                                        <select
-                                            className="w-full px-4 py-2 mt-1 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                                            value={formData.tva}
-                                            onChange={e => setFormData({ ...formData, tva: parseFloat(e.target.value) })}
-                                        >
-                                            <option value="20">20%</option>
-                                            <option value="10">10%</option>
-                                            <option value="5.5">5.5%</option>
-                                            <option value="0">0%</option>
-                                        </select>
+                                        <div className="relative">
+                                            <select
+                                                className="w-full px-4 py-2 mt-1 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+                                                value={formData.tva}
+                                                onChange={e => setFormData({ ...formData, tva: parseFloat(e.target.value) })}
+                                            >
+                                                <option value="20">20%</option>
+                                                <option value="10">10%</option>
+                                                <option value="5.5">5.5%</option>
+                                                <option value="0">0%</option>
+                                            </select>
+                                            <ChevronDown className="absolute right-3 top-[18px] w-4 h-4 text-zinc-400 pointer-events-none" />
+                                        </div>
                                     </div>
                                 </div>
 

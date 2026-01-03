@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { Client } from '../../lib/types';
 import { Button } from '../UI/Button';
 import { Input } from '../UI/Input';
@@ -113,13 +114,14 @@ export function ClientView({ onNext, onBack, entrepriseNom }: ClientViewProps) {
                             <label className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 ml-0.5">Type de client</label>
                             <div className="relative">
                                 <select
-                                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-white transition-all"
+                                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-white transition-all appearance-none"
                                     value={form.client_type}
                                     onChange={e => setForm({ ...form, client_type: e.target.value })}
                                 >
                                     <option value="particulier">Particulier</option>
                                     <option value="pro">Professionnel</option>
                                 </select>
+                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
                             </div>
                         </div>
                         <Input
