@@ -27,11 +27,25 @@ async def upload_file(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 from ..services.price_parser_service import parse_price_list_file
+from ..db.database import get_session
+from sqlmodel import Session, select
+from fastapi import Depends, Form
+from ..models.pricelist import PriceItem
+from ..models.entreprise import Entreprise
 
 @router.post("/upload/price-list")
-async def upload_price_list(file: UploadFile = File(...)):
+async def upload_price_list(
+    file: UploadFile = File(...), 
+    entreprise_nom: str = Form(...),
+    session: Session = Depends(get_session)
+):
     try:
-        # Save file temporarily
+        # 1. Find Enterprise
+        ent = session.exec(select(Entreprise).where(Entreprise.nom == entreprise_nom)).first()
+        if not ent:
+             raise HTTPException(status_code=404, detail="Entreprise introuvable")
+
+        # 2. Save file temporarily
         file_ext = os.path.splitext(file.filename)[1]
         unique_filename = f"temp_pricelist_{uuid.uuid4()}{file_ext}"
         file_path = UPLOAD_DIR / unique_filename
@@ -39,13 +53,37 @@ async def upload_price_list(file: UploadFile = File(...)):
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
             
-        # Parse file
-        items = parse_price_list_file(str(file_path), file_ext)
+        # 3. Parse file
+        items_data = parse_price_list_file(str(file_path), file_ext)
+        
+        # 4. Save to DB
+        saved_items = []
+        for i in items_data:
+            # Clean numeric values
+            try:
+                price = float(i.get('price_ht', 0))
+                tva = float(i.get('tva_rate', 0.2))
+            except:
+                price = 0
+                tva = 0.2
+                
+            new_item = PriceItem(
+                label=i.get('label', 'Sans nom'),
+                price_ht=price,
+                unit=i.get('unit', 'u'),
+                category=i.get('category', 'Général'),
+                tva=tva,
+                entreprise_id=ent.id
+            )
+            session.add(new_item)
+            saved_items.append(new_item)
+            
+        session.commit()
         
         # Cleanup
-        # os.remove(file_path) # Optional: keep it for debugging or delete
+        # os.remove(file_path)
         
-        return {"items": items}
+        return {"items": items_data, "count": len(saved_items)}
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

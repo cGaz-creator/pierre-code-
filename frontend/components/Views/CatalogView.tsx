@@ -149,7 +149,7 @@ export function CatalogView({ entrepriseNom, entrepriseId, onBack }: CatalogView
                                 if (!file) return;
                                 const toastId = toast.loading('Import en cours...');
                                 try {
-                                    await api.uploadPriceList(file);
+                                    await api.uploadPriceList(file, entrepriseNom);
                                     toast.success("Catalogue importé !", { id: toastId });
                                     loadCatalog();
                                 } catch (err) {

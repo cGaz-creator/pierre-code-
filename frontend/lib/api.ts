@@ -87,9 +87,10 @@ export const api = {
         return res.json() as Promise<{ url: string }>;
     },
 
-    uploadPriceList: async (file: File) => {
+    uploadPriceList: async (file: File, entrepriseNom: string) => {
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('entreprise_nom', entrepriseNom);
         const res = await fetch(`${API_BASE}/upload/price-list`, {
             method: 'POST',
             body: formData,
