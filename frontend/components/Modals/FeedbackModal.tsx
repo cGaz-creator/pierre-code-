@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '../UI/Button';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
+import { usePersistedState } from '../../lib/hooks/usePersistedState';
+import { Entreprise } from '../../lib/types';
 
 interface FeedbackModalProps {
     isOpen: boolean;
@@ -10,7 +12,15 @@ interface FeedbackModalProps {
 
 export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
     const [feedback, setFeedback] = useState('');
+    const [userEmail, setUserEmail] = useState('');
     const [isSending, setIsSending] = useState(false);
+    const [storedEnt] = usePersistedState<Entreprise>('entreprise', { nom: '' });
+
+    useEffect(() => {
+        if (storedEnt.email) {
+            setUserEmail(storedEnt.email);
+        }
+    }, [storedEnt.email, isOpen]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -22,7 +32,10 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
             const res = await fetch(`${apiBase}/feedback`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: feedback })
+                body: JSON.stringify({
+                    message: feedback,
+                    user_email: userEmail
+                })
             });
 
             if (res.ok) {
@@ -60,6 +73,19 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                         <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-4">Aidez-nous à améliorer Devis.ai</p>
 
                         <form onSubmit={handleSubmit} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                                    Votre Email <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="email"
+                                    className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 p-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 text-zinc-900 dark:text-white"
+                                    placeholder="nom@exemple.com"
+                                    value={userEmail}
+                                    onChange={(e) => setUserEmail(e.target.value)}
+                                    required
+                                />
+                            </div>
                             <textarea
                                 className="w-full h-32 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 p-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 text-zinc-900 dark:text-white resize-none"
                                 placeholder="Vos suggestions ou remarques..."

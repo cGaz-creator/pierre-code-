@@ -1,7 +1,11 @@
 import React from 'react';
 import { Button } from '../UI/Button';
 import { motion } from 'framer-motion';
-import { FileText, Zap, ShieldCheck, ArrowRight, CheckCircle2, Mic, LayoutTemplate, Sparkles } from 'lucide-react';
+import { FileText, Zap, ShieldCheck, ArrowRight, CheckCircle2, Mic, LayoutTemplate, Sparkles, Send } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { api } from '../../lib/api';
+import { usePersistedState } from '../../lib/hooks/usePersistedState';
+import { Entreprise } from '../../lib/types';
 
 interface HomeViewProps {
     onStart: () => void;
@@ -157,6 +161,47 @@ export function HomeView({ onStart }: HomeViewProps) {
                         </div>
                         <div className="absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 bg-zinc-200 dark:bg-zinc-800 rounded-full text-zinc-500">V2.2</div>
                     </div>
+                </div>
+            </motion.div>
+
+            {/* Contact Form Section */}
+            <motion.div variants={item} className="w-full max-w-lg mx-auto relative z-10 px-4 pb-20">
+                <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md rounded-3xl p-8 border border-zinc-200 dark:border-zinc-800 shadow-xl">
+                    <h3 className="font-bold text-2xl mb-2 text-zinc-900 dark:text-white">Nous contacter</h3>
+                    <p className="text-zinc-500 dark:text-zinc-400 mb-6 text-sm">Une question ou un projet ? Écrivez-nous.</p>
+
+                    <form onSubmit={handleContactSubmit} className="space-y-4 text-left">
+                        <div>
+                            <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1 ml-1 uppercase tracking-wide">
+                                Votre Email
+                            </label>
+                            <input
+                                type="email"
+                                className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-black/50 p-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 text-zinc-900 dark:text-white transition-all"
+                                placeholder="nom@exemple.com"
+                                value={contactEmail}
+                                onChange={(e) => setContactEmail(e.target.value)}
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1 ml-1 uppercase tracking-wide">
+                                Message
+                            </label>
+                            <textarea
+                                className="w-full h-32 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-black/50 p-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 text-zinc-900 dark:text-white resize-none transition-all"
+                                placeholder="Bonjour, je souhaiterais..."
+                                value={contactMessage}
+                                onChange={(e) => setContactMessage(e.target.value)}
+                                required
+                            />
+                        </div>
+
+                        <Button type="submit" className="w-full rounded-xl py-3 text-base flex justify-center items-center gap-2">
+                            Envoyer le message <Send className="w-4 h-4" />
+                        </Button>
+                    </form>
                 </div>
             </motion.div>
         </motion.div>

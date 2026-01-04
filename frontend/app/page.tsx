@@ -330,6 +330,24 @@ export default function HomePage() {
                 {renderContent()}
             </main>
 
+            {/* Floating Action Button for Feedback */}
+            <button
+                onClick={() => setShowFeedbackModal(true)}
+                className="fixed bottom-6 right-6 p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all z-50 group flex items-center"
+                title="Donner votre avis"
+            >
+                <div className="relative">
+                    <MessageSquarePlus className="w-6 h-6" />
+                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-200 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-400"></span>
+                    </span>
+                </div>
+                <span className="max-w-0 opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-2 transition-all duration-300 ease-in-out whitespace-nowrap font-medium overflow-hidden">
+                    Aidez-nous
+                </span>
+            </button>
+
             {/* Modals */}
             <EnterpriseModal isOpen={showEntModal} onClose={() => setShowEntModal(false)} />
             <PriceListModal isOpen={showPriceModal} onClose={() => setShowPriceModal(false)} />
