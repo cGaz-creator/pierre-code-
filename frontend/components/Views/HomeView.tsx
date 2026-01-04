@@ -53,6 +53,34 @@ export function HomeView({ onStart }: HomeViewProps) {
         }
     };
 
+    // Contact Form Logic
+    const [contactMessage, setContactMessage] = React.useState('');
+    const [contactEmail, setContactEmail] = React.useState('');
+    const [storedEnt] = usePersistedState<Entreprise>('entreprise', { nom: '' });
+
+    React.useEffect(() => {
+        if (storedEnt.email) {
+            setContactEmail(storedEnt.email);
+        }
+    }, [storedEnt.email]);
+
+    const handleContactSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            await api.sendIdeaFeedback({
+                category: 'Contact Homepage',
+                message: contactMessage,
+                user_email: contactEmail
+            });
+            toast.success("Message envoyé !");
+            setContactMessage('');
+            if (!storedEnt.email) setContactEmail('');
+        } catch (e) {
+            toast.error("Erreur d'envoi");
+            console.error(e);
+        }
+    };
+
     return (
         <motion.div
             variants={container}
