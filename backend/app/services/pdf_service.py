@@ -39,7 +39,16 @@ THEMES = {
         "header_band": {"height_mm": 16, "right_tag": True},
         "cards": True,
     },
+    "minimalist": {
+        "label": "Minimalist",
+        "accent_hex": "#000000",
+        "table_header_fill": "#FFFFFF",
+        "header_band": None,
+        "cards": False,
+        "classic_layout": True # Special flag for layout
+    }
 }
+
 
 def hex_to_color(h: str) -> colors.Color:
     if not h: return colors.HexColor("#111827")
@@ -103,64 +112,132 @@ def generate_pdf(d: Devis, e: Entreprise) -> bytes:
                 img_reader = ImageReader(io.BytesIO(img_bytes))
             else:
                 img_reader = ImageReader(logo_src)
-            if img_reader:
+            
+            # Positionnement Logo (Minimalist vs Standard)
+            if theme_cfg.get("classic_layout"):
+                c.drawImage(img_reader, 20*mm, h - 35*mm, 25*mm, 25*mm, preserveAspectRatio=True, mask="auto")
+            else:
                 c.drawImage(img_reader, w - 40*mm, h - 30*mm, 20*mm, 20*mm, preserveAspectRatio=True, mask="auto")
         except: pass
 
-    # En-tête (Gauche: Entreprise, Droite: Client + Infos Devis)
+    # En-tête 
     y = h - 30*mm
     
-    # --- Col Gauche : Entreprise ---
-    c.setFont("Helvetica-Bold", 12); c.setFillColor(colors.black)
-    c.drawString(20*mm, y, e.nom)
-    y -= 5*mm
-    c.setFont("Helvetica", 9); c.setFillColor(colors.grey)
-    def draw_ent_line(txt):
-        nonlocal y
-        if txt: c.drawString(20*mm, y, txt); y -= 4*mm
+    # --- MODE MINIMALIST SPECIAL LAYOUT ---
+    if theme_cfg.get("classic_layout"):
+         # DEVIS Box Top Right
+        c.setLineWidth(1)
+        c.rect(w - 70*mm, h - 25*mm, 50*mm, 12*mm)
+        c.setFont("Helvetica-Bold", 14)
+        c.drawCentredString(w - 45*mm, h - 21*mm, "DEVIS")
+        
+        # Enterprise Info (Left below logo)
+        y = h - 45*mm
+        c.setFont("Helvetica-Bold", 11); c.setFillColor(colors.black)
+        c.drawString(20*mm, y, e.nom); y -= 5*mm
+        c.setFont("Helvetica", 9); c.setFillColor(colors.grey)
+        
+        def draw_ent_line_min(txt):
+             nonlocal y
+             if txt: c.drawString(20*mm, y, txt); y -= 4*mm
 
-    draw_ent_line(e.adresse)
-    draw_ent_line(f"{e.forme or ''} au capital social".strip() if e.forme else "")
-    draw_ent_line(f"SIRET : {e.siret}")
-    if e.rm_rcs: draw_ent_line(f"RCS/RM : {e.rm_rcs}")
-    if e.tva_intracom: draw_ent_line(f"TVA : {e.tva_intracom}")
-    draw_ent_line(e.email)
-    draw_ent_line(e.tel)
-    
-    # --- Col Droite : Devis & Client ---
-    y_right = h - 30*mm
-    c.setFillColor(accent)
-    c.setFont("Helvetica-Bold", 18)
-    c.drawRightString(190*mm, y_right, f"DEVIS N° {d.readable_id}")
-    y_right -= 8*mm
-    
-    c.setFillColor(colors.black); c.setFont("Helvetica", 10)
-    c.drawRightString(190*mm, y_right, f"Date : {d.date}")
-    y_right -= 5*mm
-    if d.validite_jours:
-        c.drawRightString(190*mm, y_right, f"Valable jusqu'au : {d.date} (+{d.validite_jours}j)")
-        y_right -= 5*mm
-
-    y_right -= 5*mm
-    # Client Box
-    c.setFillColor(colors.whitesmoke)
-    c.roundRect(100*mm, y_right - 35*mm, 90*mm, 35*mm, 4*mm, fill=1, stroke=0)
-    c.setFillColor(colors.black)
-    
-    c.setFont("Helvetica-Bold", 10)
-    c.drawString(105*mm, y_right - 6*mm, "Client :")
-    c.setFont("Helvetica-Bold", 11)
-    if d.client:
-        c.drawString(105*mm, y_right - 12*mm, d.client.nom)
+        draw_ent_line_min(e.adresse)
+        draw_ent_line_min(f"SIRET: {e.siret}")
+        draw_ent_line_min(e.email)
+        draw_ent_line_min(e.tel)
+        
+        # Client Info Box (Right)
+        c.setFillColor(colors.HexColor("#F3F4F6")) # Gray bg
+        c.rect(w - 90*mm, h - 70*mm, 70*mm, 35*mm, fill=1, stroke=0)
+        c.setFillColor(colors.black)
+        
+        yc = h - 70*mm + 28*mm
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(w - 85*mm, yc, "Client :"); yc -= 5*mm
+        if d.client:
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(w - 85*mm, yc, d.client.nom); yc -= 5*mm
+            c.setFont("Helvetica", 9)
+            c.drawString(w - 85*mm, yc, d.client.adresse or ""); yc -= 4*mm
+            c.drawString(w - 85*mm, yc, d.client.email or ""); yc -= 4*mm
+        
+        # Devis Details (Below Enterprise)
+        y = min(y, h - 80*mm)
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(20*mm, y, f"Devis N°: {d.readable_id}"); y -= 5*mm
         c.setFont("Helvetica", 10)
-        c.drawString(105*mm, y_right - 17*mm, d.client.adresse or "Adresse non renseignée")
-        c.drawString(105*mm, y_right - 22*mm, d.client.email or "")
-        c.drawString(105*mm, y_right - 27*mm, d.client.tel or "")
-    else:
-        c.drawString(105*mm, y_right - 12*mm, "Client Inconnu")
+        c.drawString(20*mm, y, f"Date: {d.date}"); y -= 5*mm
+        
+        # Reset Y for body
+        y = h - 110*mm
 
-    # Objet & Dates travaux
-    y = min(y, y_right - 40*mm) - 10*mm
+    else:
+        # --- STANDARD LAYOUT (Modern, Bold, etc.) ---
+        # Col Gauche : Entreprise
+        c.setFont("Helvetica-Bold", 12); c.setFillColor(colors.black)
+        c.drawString(20*mm, y, e.nom)
+        y -= 5*mm
+        c.setFont("Helvetica", 9); c.setFillColor(colors.grey)
+        def draw_ent_line(txt):
+            nonlocal y
+            if txt: c.drawString(20*mm, y, txt); y -= 4*mm
+
+        draw_ent_line(e.adresse)
+        draw_ent_line(f"{e.forme or ''} au capital social".strip() if e.forme else "")
+        draw_ent_line(f"SIRET : {e.siret}")
+        if e.rm_rcs: draw_ent_line(f"RCS/RM : {e.rm_rcs}")
+        if e.tva_intracom: draw_ent_line(f"TVA : {e.tva_intracom}")
+        draw_ent_line(e.email)
+        draw_ent_line(e.tel)
+        
+        # Col Droite : Devis & Client
+        y_right = h - 30*mm
+        c.setFillColor(accent)
+        c.setFont("Helvetica-Bold", 18)
+        c.drawRightString(190*mm, y_right, f"DEVIS N° {d.readable_id}")
+        y_right -= 8*mm
+        
+        c.setFillColor(colors.black); c.setFont("Helvetica", 10)
+        c.drawRightString(190*mm, y_right, f"Date : {d.date}")
+        y_right -= 5*mm
+        if d.validite_jours:
+            c.drawRightString(190*mm, y_right, f"Valable jusqu'au : {d.date} (+{d.validite_jours}j)")
+            y_right -= 5*mm
+
+        y_right -= 5*mm
+        # Client Box
+        c.setFillColor(colors.whitesmoke)
+        c.roundRect(100*mm, y_right - 35*mm, 90*mm, 35*mm, 4*mm, fill=1, stroke=0)
+        c.setFillColor(colors.black)
+        
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(105*mm, y_right - 6*mm, "Client :")
+        c.setFont("Helvetica-Bold", 11)
+        if d.client:
+            c.drawString(105*mm, y_right - 12*mm, d.client.nom)
+            c.setFont("Helvetica", 10)
+            c.drawString(105*mm, y_right - 17*mm, d.client.adresse or "Adresse non renseignée")
+            c.drawString(105*mm, y_right - 22*mm, d.client.email or "")
+            c.drawString(105*mm, y_right - 27*mm, d.client.tel or "")
+        else:
+            c.drawString(105*mm, y_right - 12*mm, "Client Inconnu")
+
+        # Objet & Dates travaux
+        y = min(y, y_right - 40*mm) - 10*mm
+    
+    # Common Objet/Travaux section (for all except if crowded in Minimal)
+    if d.objet:
+        c.setFont("Helvetica-Bold", 11); c.setFillColor(colors.black)
+        c.drawString(20*mm, y, f"Objet : {d.objet}")
+        y -= 6*mm
+    
+    if d.date_debut or d.duree_travaux:
+        c.setFont("Helvetica", 9)
+        txt = "Travaux : "
+        if d.date_debut: txt += f"Début le {d.date_debut} "
+        if d.duree_travaux: txt += f"(Durée estimée : {d.duree_travaux})"
+        c.drawString(20*mm, y, txt)
+        y -= 6*mm
     if d.objet:
         c.setFont("Helvetica-Bold", 11)
         c.drawString(20*mm, y, f"Objet : {d.objet}")

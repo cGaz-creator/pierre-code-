@@ -236,12 +236,12 @@ export default function HomePage() {
                     >
                         Mon Catalogue
                     </button>
-                    <a
-                        href="mailto:contact@devis.ai"
+                    <button
+                        onClick={() => setShowFeedbackModal(true)}
                         className="text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition-colors"
                     >
                         Contact
-                    </a>
+                    </button>
                 </nav>
 
                 <div className="flex items-center gap-2 md:gap-4">
