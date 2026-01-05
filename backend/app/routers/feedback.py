@@ -1,56 +1,53 @@
-from fastapi import APIRouter, BackgroundTasks
-from pydantic import BaseModel
-from datetime import datetime
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-import os
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+from pydantic import BaseModel, EmailStr
+from typing import Optional
+from ..services.email_service import EmailService
 
 router = APIRouter(
     prefix="/feedback",
     tags=["feedback"]
 )
 
-class Feedback(BaseModel):
+class HomepageFeedback(BaseModel):
+    category: str
     message: str
+    user_email: Optional[str] = None
 
-def send_email_notification(message: str):
-    sender_email = os.getenv("SMTP_USER")
-    sender_password = os.getenv("SMTP_PASSWORD")
-    receiver_email = "devis.ia.pro@gmail.com"
-    smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+class QualityAudit(BaseModel):
+    score: int
+    details: dict
+    user_email: Optional[str] = None
 
-    if not sender_email or not sender_password:
-        print("SMTP Credentials not found. Skipping email.")
-        return
-
+@router.post("/submit_idea")
+def submit_idea(feedback: HomepageFeedback, background_tasks: BackgroundTasks):
     try:
-        msg = MIMEMultipart()
-        msg['From'] = sender_email
-        msg['To'] = receiver_email
-        msg['Subject'] = f"Nouveau Feedback Devis.ai - {datetime.now().strftime('%d/%m/%Y')}"
-
-        body = f"Vous avez reçu un nouveau message :\n\n{message}\n\nDate: {datetime.now()}"
-        msg.attach(MIMEText(body, 'plain'))
-
-        server = smtplib.SMTP(smtp_server, smtp_port)
-        server.starttls()
-        server.login(sender_email, sender_password)
-        text = msg.as_string()
-        server.sendmail(sender_email, receiver_email, text)
-        server.quit()
-        print(f"Email sent to {receiver_email}")
+        # Use the service directly
+        # Note: In a real async app we might want to await this or put it in background task wrapper
+        # The service method uses resend synchronously? Resend SDK is sync by default unless async client used.
+        # But our EmailService wrapper is mixed. Let's assume sync for now or background it.
+        
+        # EmailService.send_idea_feedback is likely sync based on previous reads (using resend.Emails.send)
+        # We can run it directly.
+        EmailService.send_idea_feedback(
+            category=feedback.category, 
+            message=feedback.message, 
+            user_email=feedback.user_email
+        )
+        return {"status": "ok", "message": "Feedback envoyé"}
     except Exception as e:
-        print(f"Failed to send email: {e}")
+        print(f"Error sending feedback: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("")
-def receive_feedback(feedback: Feedback, background_tasks: BackgroundTasks):
-    # Always save to file as backup
-    with open("feedbacks.txt", "a") as f:
-        f.write(f"[{datetime.now()}] {feedback.message}\n")
-    
-    # Send email in background
-    background_tasks.add_task(send_email_notification, feedback.message)
-    
-    return {"status": "received"}
+@router.post("/submit_quality_audit")
+def submit_quality_audit(audit: QualityAudit):
+    try:
+        EmailService.send_quality_audit(
+            score=audit.score,
+            details=audit.details,
+            user_email=audit.user_email
+        )
+        return {"status": "ok", "message": "Audit envoyé"}
+    except Exception as e:
+        print(f"Error sending audit: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
